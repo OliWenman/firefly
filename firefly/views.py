@@ -10,8 +10,10 @@ from .models import FireflyTracker
 def home(request):
 
 	manager = get_object_or_404(FireflyTracker)
-	context = {manager : 'manager'}
+	context = {'manager' : manager}
 	print(manager.queue)
+	manager.queue = 0
+	manager.save()
 
 	return render(request, 'firefly/home.html', context)
 
