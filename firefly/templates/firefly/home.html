@@ -5,27 +5,145 @@
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
 
   <link rel="stylesheet" type="text/css" href = "/static/firefly/styles.css" />
+  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
 
 </head>
 
-{% load static %}
-
 <body>
   <header>Welcome to Firefly!</header>
-  </div>
-    <section>You are: {{ manager.queue }} in the queue</section>
+    <section><p>You are: {{ manager.queue }} in the queue</p> </section>
     <section>
-      <form action = 'processing/' method = "POST" onsubmit="; myFunction(); myButton.disabled = true; return true;">
+
+    <fieldset>
+      <legend>Inputs</legend>
+
+      <br/>
 
       {% csrf_token %}
-    
-      <button id = "myButton"  type="submit" method = "POST" onclick="">Submit</button>
 
+      <form action = 'processing/' method = "POST" onsubmit="; myFunction(); myButton.disabled = true; return true;">
+
+        <fieldset>
+          <legend>Model input</legend>
+        </fieldset>
+
+        <br/>
+
+        <fieldset>
+          <legend>File input</legend>
+        </fieldset>
+
+        <br/>
+
+        <fieldset>
+          <legend>Preferences</legend>
+
+          <br/>
+
+          <div style="display:inline-block;">
+            <label>Model key</label>
+            <select id = "models_key">
+              <option value = "m11">m11</option>
+            </select>
+          </div>
+
+          <br/>
+
+          <div style="display:inline-block;">
+            <label>Minimium age</label>
+            <input type="number" name="ageMin" value="0">
+          </div>
+
+          <br/>
+
+          <div style="display:inline-block;">
+            <label>ZMin</label>
+            <input type="number" name="ZMin" value="0.001">
+          </div>
+
+          <br/>
+
+          <div style="display:inline-block;">
+            <label>ZMax</label>
+            <input type="number" name="ZMax" value="10">
+          </div>
+
+          <br/> <br/>
+
+          <div style="display:inline-block;">
+            <label>model_libs</label>
+            <select id = "model_libs">
+              <option value = "MILES">MILES</option>
+            </select>
+            <div class="tooltip"> &nbsp; ? 
+              <span class="tooltiptext">Model flavour</span>
+            </div>
+          </div>
+
+          <br/>
+
+          <div style="display:inline-block;">
+            <label>imfs</label>
+            <select id = "imfs">
+              <option value = "kr">kr</option>
+            </select>
+            <div class="tooltip"> &nbsp; ? 
+              <span class="tooltiptext">Initial mass function model</span>
+            </div>
+          </div>
+
+          <br/>
+
+          <div style="display:inline-block">
+            <label>Wave medium</label>
+            <select id = "wave_medium">
+              <option value = "air">air</option>
+              <option value = "vacuum">vacuum</option>
+            </select>
+
+            <div class="tooltip"> <label> &nbsp; ?</label> 
+              <span class="tooltiptext">Specify whether data is in air or vaccum</span>
+            </div>
+          </div>
+
+          <br/>
+
+          <div style="display:inline-block">
+            <label>Downgrade models</label>
+            <select id = "downgrade_models">
+              <option value = "true">true</option>
+              <option value = "false">false</option>
+            </select>
+
+            <div class="tooltip"> &nbsp; ? 
+              <span class="tooltiptext">specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion</span>
+            </div>
+          </div>
+
+          <br/>
+
+          <div style="display: inline-block;">
+            <label>Flux units</label>
+            <input type="number" name="flux_units" min="0" value="1">
+            <div class="tooltip"> &nbsp; ? 
+              <span class="tooltiptext">Firefly assumes flux units of erg/s/A/cm^2. Choose factor in case flux is scaled (e.g. flux_units=10**(-17) for SDSS)</span>
+            </div>
+          </div>
+
+          <br/>
+
+        </fieldset>
+
+        <br/>
+        <button id = "myButton"  type="submit" method = "POST" onclick="">Submit</button>
       </form>
-    </section>
-  </div>
+    </fieldset>
+  </section>
 
 </body>
+
+
+
 
 <div id="processing_message" >
   <section>
