@@ -9,34 +9,46 @@
 
 </head>
 
-<body>
+<body class="big">
   <header>Welcome to Firefly!</header>
-    <section><p>You are: {{ manager.queue }} in the queue</p> </section>
-    <section>
-
+  <section><p>You are: {{ manager.queue }} in the queue</p> </section>
+  <section>
     <fieldset>
-      <legend>Inputs</legend>
+      <legend><b>Inputs</b></legend>
 
-      <br/>
+      <form enctype="multipart/form-data" method = "POST" onsubmit="; loading_message(); submit.disabled = true; return true;">
 
-      {% csrf_token %}
-
-      <form action = 'processing/' method = "POST" onsubmit="; myFunction(); myButton.disabled = true; return true;">
+        {% csrf_token %}
 
         <fieldset>
-          <legend>Model input</legend>
+          <legend><b>Model</b></legend>
         </fieldset>
 
         <br/>
 
         <fieldset>
-          <legend>File input</legend>
+          
+          <legend>
+            <div class="tooltip"> <b>SED</b>
+              <span class="tooltiptext">Spectral energy distrubtion. Ascii file containing wavelength and flux arrays.</span>
+            </div>
+          </legend>
+          
+          <input type="file" name="SED" accept=".ascii">
+
+          <div id = "error_message_SED">
+            {% if error_message_SED %}
+              <br/>
+              <b><font color="red">{{error_message_SED}}</font></b>
+            {% endif %}
+          </dir>
+
         </fieldset>
 
         <br/>
 
         <fieldset>
-          <legend>Preferences</legend>
+          <legend><b>Preferences</b></legend>
 
           <br/>
 
@@ -116,7 +128,7 @@
             </select>
 
             <div class="tooltip"> &nbsp; ? 
-              <span class="tooltiptext">specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion</span>
+              <span class="tooltiptext">Specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion</span>
             </div>
           </div>
 
@@ -132,37 +144,54 @@
 
           <br/>
 
+          <div style="display:inline-block;">
+            <label>Error(%)</label>
+            <input type="number" name="error" value="10">
+          </div>
+
+
         </fieldset>
 
         <br/>
-        <button id = "myButton"  type="submit" method = "POST" onclick="">Submit</button>
+        <button id = "submit"  type="submit" method = "POST" onclick="">Submit</button>
+
+        {% if error_message %}
+          {{error_message}}
+        {% endif %}
+
       </form>
+
+      <div id="processing_message" >
+        <span>Submission sent for processing! This may take several minutes... </span>
+        <span class = "loader"></span>   
+      </div>
+
     </fieldset>
   </section>
-
 </body>
 
-
-
-
-<div id="processing_message" >
-  <section>
-    <span>Submission sent for processing! This may take several minutes... </span>
-    <span class = "loader"></span>
-  </section>   
-</div>
 
 <script type="text/javascript">
   document.getElementById("processing_message").style.display = "none";
 </script>
 
 <script>
-function myFunction() {
-  var x = document.getElementById("processing_message");
-  if (x.style.display === "block") {
-    x.style.display = "none";
-  } else {
-    x.style.display = "block";
+function loading_message() {
+  var pm = document.getElementById("processing_message");
+  var error_message_SED = document.getElementById("error_message_SED");
+
+  if (pm.style.display === "block") {
+    pm.style.display = "none";
+  } 
+  else {
+    pm.style.display = "block";
+  }
+
+  if (error_message_SED.stlye.display == "none") {
+    error_message_SED.style.display = "block"
+  }
+  else {
+    error_message_SED.style.display = "none";
   }
 }
 </script>

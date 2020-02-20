@@ -127,7 +127,11 @@ class Firefly():
 		timestr = time.strftime("%Y%m%d%H%M%S")
 
 		outputFolder = join(os.environ['FF_DIR'], 'output')
-		output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:-6] ) + "_" +timestr + ".fits"
+		try:
+			output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:-6] ) + "_" +timestr + ".fits"
+		except(TypeError):
+			output_file = join( outputFolder , 'spFly-' + self.input_file.name + "_" +timestr + ".fits")
+
 
 		if os.path.isfile(output_file) and self.override_results == False:
 			print()
@@ -159,8 +163,8 @@ class Firefly():
 		tables = [prihdu]
 
 		#define input object to pass data on to firefly modules and initiate run
-		spec=setup.firefly_setup(self.input_file, 
-								 N_angstrom_masked=self. N_angstrom_masked)
+		spec=setup.firefly_setup(path_to_spectrum  = self.input_file, 
+								 N_angstrom_masked = self. N_angstrom_masked)
 		
 		spec.openSingleSpectrum(self.wavelength, 
 								self.flux, 
