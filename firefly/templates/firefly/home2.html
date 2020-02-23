@@ -1,0 +1,64 @@
+<head>
+
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+
+  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
+
+</head>
+
+<body class="big">
+	<header>Welcome to Firefly!</header>
+	<form enctype="multipart/form-data" method = "POST">
+  		{% csrf_token %}
+
+		{{ form.non_field_errors }}
+
+		{% for hidden_field in form.hidden_fields %}
+			{{ hidden_field.errors }}
+			{{ hidden_field }}
+		{% endfor %}
+
+		<fieldset>
+			<legend><b>SED file</b></legend>
+			{{SED.as_p}}
+
+			{% if SED_ERROR %}
+				<br/>
+				<b id="SED_ERROR"><font color="red">{{SED_ERROR}}</font></b>
+			{% endif %}
+		</fieldset>
+
+		<fieldset>
+			<legend><b>Model</b></legend>
+			{% for field in form.visible_fields %}
+				<tr>
+					<div class="tooltip"> <th>{{ field.label_tag }}</th>
+						{% if field.help_text %}
+              				<span class="tooltiptext">{{ field.help_text }}</span>
+            			{% endif %}
+            		</div>
+					
+					<td>
+						{{ field.errors }}
+						{{ field }}
+					</td>
+				</tr>
+				<br/>
+			{% endfor %}
+		</fieldset>
+
+
+	<button type="submit">Submit</button>
+	</form>
+
+</body>
+
+<script>
+function hide_error() {
+  var pm = document.getElementById("SED_ERROR");
+
+  pm.style.display = "none";
+
+
+}
+</script>

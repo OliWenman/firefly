@@ -95,7 +95,7 @@
           <br/>
 
           <div style="display:inline-block;">
-            <label>imfs</label>
+            <label for="imf">imfs</label>
             <select id = "imfs">
               <option value = "kr">kr</option>
             </select>
@@ -142,11 +142,15 @@
             </div>
           </div>
 
+          {{form}}
+
+          {{form.errors}}
+
           <br/>
 
           <div style="display:inline-block;">
-            <label>Error(%)</label>
-            <input type="number" name="error" value="10">
+            <label for="error">Error(%)</label>
+            <input id = "error" type="number" name="error" value="10" required>
           </div>
 
 

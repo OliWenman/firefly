@@ -3,6 +3,18 @@ from django import forms
 
 from core_firefly import firefly_class
 
+class SED(models.Model):
+
+	file        = models.FileField(upload_to='')
+	uploaded_at = models.DateTimeField(auto_now_add=True)
+	results_id  = models.IntegerField(default = 0)
+
+class FireflyResults(models.Model):
+
+	file        = models.FileField(upload_to='')
+	uploaded_at = models.DateTimeField(auto_now_add=True)
+
+
 class FireflyTracker(models.Model):
 
 	queue = models.IntegerField(default = 0)
@@ -20,7 +32,6 @@ class FireflyTracker(models.Model):
 			return False
 		else:
 			return True
-
 
 
 

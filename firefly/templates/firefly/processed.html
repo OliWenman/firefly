@@ -1,3 +1,5 @@
+{% load static %}
+
 <head>
 
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
@@ -11,8 +13,12 @@
 	
 	<section>
 		<div>Fitting code complete!</div>
+
+		<a href="{{ results.file.url }}" download>{{ results.file.name }}</a>
+        <small>(Uploaded at: {{ results.uploaded_at }})</small>
+
 		<div>
-			<a href="/">Click here</a> to submitt another request.
+			<a href="/firefly/">Click here</a> to submit another request.
 		</div>
 	</section>
 </body>

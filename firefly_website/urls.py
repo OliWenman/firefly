@@ -17,6 +17,6 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-	path('', include('firefly.urls'), name = 'firefly'),
+	path('firefly/', include('firefly.urls'), name = 'firefly'),
     path('admin/', admin.site.urls),
 ]

@@ -1,4 +1,5 @@
 /core_firefly/output*
 /core_firefly/stellar_population_models*
+/media*
 
 !core_firefly/output/plot_data.py

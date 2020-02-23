@@ -12,5 +12,5 @@ app_name = 'firefly'
 urlpatterns = [
 	path('', views.home, name = 'home'),
 	path('processing/', views.processing, name = 'processing'),
-	path('processed/', views.processed, name = 'processed')
-	] 
+	path('processed/<int:results_id>/', views.processed, name = 'processed')
+	] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
