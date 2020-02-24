@@ -20,12 +20,15 @@
 
 		<fieldset>
 			<legend><b>SED file</b></legend>
-			{{SED.as_p}}
 
-			{% if SED_ERROR %}
-				<br/>
-				<b id="SED_ERROR"><font color="red">{{SED_ERROR}}</font></b>
-			{% endif %}
+			<a  href="/firefly/download/0"> Download Example data </a>
+			<br/>
+
+			{% for field in SED.visible_fields %}
+				{{field}}
+				<br/><b id="SED_ERROR"><font color="red">{{field.errors}}</font></b >
+			{% endfor %}
+
 		</fieldset>
 
 		<fieldset>

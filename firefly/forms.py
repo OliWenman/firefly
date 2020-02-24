@@ -1,6 +1,10 @@
 from django import forms
+from django.core.exceptions import ValidationError
+
 from .models import SED
+
 import numpy as np
+import os
 
 class SEDform(forms.ModelForm):
 	class Meta:
@@ -10,13 +14,10 @@ class SEDform(forms.ModelForm):
 	def is_valid(self, file):
 		
 		valid = super(SEDform, self).is_valid()
-
 		try:
-			print("trying valid2",file)
 			np.loadtxt(file, unpack=True)
 			valid2 = True
 		except(ValueError):
-			print("failed") 
 			valid2 = False
 		
 		if valid and valid2 == True:
@@ -24,13 +25,42 @@ class SEDform(forms.ModelForm):
 		else:
 			return False
 
-
 model_key_choices   = [('m11','m11')]
 imf_choices         = [('kr','kr')]
 wave_medium_choices = [('air','air'), ('vacuum','vacuum')]
 model_libs_choices  = [('MILES', 'MILES')]
 
-class FireFlyModel_Form(forms.Form):
+class SEDfileform(forms.Form):
+
+	def validate_file_okay(value):
+		ext = os.path.splitext(value.name)[1]
+		valid_extensions = ['.ascii']
+		if not ext in valid_extensions:
+			raise ValidationError(u'File not supported!')
+
+		try:
+			np.loadtxt(value, unpack=True)
+		except(ValueError):
+			raise ValidationError(u'File is corrupted!')
+
+	file = forms.FileField(widget=forms.FileInput(attrs={'accept' : '.ascii'}), validators = [validate_file_okay])
+	"""
+	def is_valid(self, file):
+		
+		valid = super(SEDfileform, self).is_valid()
+		try:
+			np.loadtxt(file, unpack=True)
+			valid2 = True
+		except(ValueError):
+			valid2 = False
+		
+		if valid and valid2 == True:
+			return True
+		else:
+			return False
+	"""
+
+class FireFlySettings_Form(forms.Form):
 
 	ageMin = forms.DecimalField(initial = 0, label = "Minimum age", min_value = 0)
 	#ageMax

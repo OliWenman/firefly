@@ -3,3 +3,4 @@
 /media*
 
 !core_firefly/output/plot_data.py
+*.fits

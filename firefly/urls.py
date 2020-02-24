@@ -10,7 +10,9 @@ from . import views
 
 app_name = 'firefly'
 urlpatterns = [
-	path('', views.home, name = 'home'),
-	path('processing/', views.processing, name = 'processing'),
-	path('processed/<int:results_id>/', views.processed, name = 'processed')
+	path('', views.home2, name = 'home'),
+	path('processing/<int:results_id>', views.processing, name = 'processing'),
+	path('processed/<int:results_id>/', views.processed, name = 'processed'),
+	path('download/<int:results_id>/', views.download, name = 'download'),
+	#url(r'^download/(?P<path>.*)$', views.download, {'document_root': settings.MEDIA_ROOT})
 	] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

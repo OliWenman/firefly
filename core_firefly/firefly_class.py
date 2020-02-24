@@ -118,19 +118,18 @@ class Firefly():
 		self.downgrade_models=True
 
 
-	def run(self):
+	def run(self, outputFolder, file_id):
 
 		#set output folder and output filename in firefly directory 
 		#and write output file
 
 		t0 = time.time()
-		timestr = time.strftime("%Y%m%d%H%M%S")
 
-		outputFolder = join(os.environ['FF_DIR'], 'output')
+		#outputFolder = "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/media"
 		try:
-			output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:-6] ) + "_" +timestr + ".fits"
+			output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:-6] ) + ".fits"
 		except(TypeError):
-			output_file = join( outputFolder , 'spFly-' + self.input_file.name + "_" +timestr + ".fits")
+			output_file = join( outputFolder , 'spFly-' + self.input_file.name)[0:-6] + "_" +str(file_id) + ".fits"
 
 
 		if os.path.isfile(output_file) and self.override_results == False:
@@ -149,14 +148,14 @@ class Firefly():
 		print()
 		print( 'Output file: ', output_file                 )
 		print()
-		prihdr = spm.pyfits.Header()
-		prihdr['FILE']          = os.path.basename(output_file)
+		prihdr              = spm.pyfits.Header()
+		prihdr['FILE']      = os.path.basename(output_file)
 		prihdr['MODELS']	= self.models_key
 		prihdr['FITTER']	= "FIREFLY"	
 		prihdr['AGEMIN']	= str(self.ageMin)		
 		prihdr['AGEMAX']	= str(self.ageMax)
-		prihdr['ZMIN']	        = str(self.ZMin)
-		prihdr['ZMAX']	        = str(self.ZMax)
+		prihdr['ZMIN']	    = str(self.ZMin)
+		prihdr['ZMAX']	    = str(self.ZMax)
 		prihdr['redshift']	= self.redshift
 		prihdr['HIERARCH age_universe']	= np.round(self.cosmo.age(self.redshift).value,3)
 		prihdu = spm.pyfits.PrimaryHDU(header=prihdr)
@@ -210,4 +209,5 @@ class Firefly():
 		print()
 		print ("Done... total time:", int(time.time()-t0) ,"seconds.")
 		print()
+		return output_file
 
