@@ -9,7 +9,7 @@ import os
 class SEDform(forms.ModelForm):
 	class Meta:
 		model = SED
-		fields = ('file',)
+		fields = ('output_file',)
 
 	def is_valid(self, file):
 		
@@ -43,7 +43,7 @@ class SEDfileform(forms.Form):
 		except(ValueError):
 			raise ValidationError(u'File is corrupted!')
 
-	file = forms.FileField(widget=forms.FileInput(attrs={'accept' : '.ascii'}), validators = [validate_file_okay])
+	input_file = forms.FileField(widget=forms.FileInput(attrs={'accept' : '.ascii'}), validators = [validate_file_okay])
 	"""
 	def is_valid(self, file):
 		

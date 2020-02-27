@@ -6,46 +6,103 @@ from django.dispatch import receiver
 
 from core_firefly import firefly_class
 
+#Import seperate background_tasks, allows for processing to be done in background
+#and not risk a timeout requesting a page while processing.
+from background_task import background
+from background_task.models import Task
+from background_task.models import CompletedTask
+
+import os
+"""
+def wrapper(method):
+    @background(method)
+    def _impl(self, *method_args, **method_kwargs):
+        pass
+    return _impl
+"""
 class SED(models.Model):
 
-	file        = models.FileField(upload_to='')
+	output_file = models.FileField(upload_to='', blank =True)
 	uploaded_at = models.DateTimeField(auto_now_add=True)
-	results_id  = models.IntegerField(default = 0)
+	job_id      = models.IntegerField(default = 0)
 
 	def __str__(self):
-		return self.file.name
+		return str(self.job_id)
 
-class FireflyResults(models.Model):
+#Job_Submissions contains the input and output files for firefly. 
+#Each job identified by a unique job_id.
+class Job_Submission(models.Model):
 
-	file        = models.FileField(upload_to='')
-	uploaded_at = models.DateTimeField(auto_now_add=True)
-	results_id  = models.IntegerField(default = 0)
+	job_id      = models.IntegerField(default = 0)
+	#Need to add
+	input_file  = models.FileField(upload_to='', blank = True)
+	output_file = models.FileField(upload_to='', blank = True)
+
+	#Status will show what state its in. 
+	#1)pre-processing
+	#2)processing
+	#3)complete/failed
+	status      = models.CharField(default = 'preprocessing', max_length=14)
+	
+	def output_file_(self):
+		return os.path.basename(self.output_file.name)
+
+	def input_file_(self):
+		return os.path.basename(self.input_file.name)
 
 	def __str__(self):
-		return self.file.name
+		return str(self.job_id)
 
-@receiver(post_delete, sender=FireflyResults)
+	"""
+	def process_input(self,
+					  input_file, 
+					  job_id,
+					  ZMin,
+					  ZMax,
+					  flux_units,
+					  error,
+					  model_key,
+					  model_libs,
+					  imfs,
+					  wave_medium,
+					  downgrade_models):
+
+		firefly = firefly_class.Firefly()
+		firefly.model_input()
+		firefly.file_input(input_file = input_file)
+		firefly.settings()
+		
+		output = firefly.run(settings.MEDIA_ROOT, self.job_id)
+		
+		self.output_file = output
+		#warnings.filterwarnings("error")
+
+		#try:
+
+		#job_submission      = Job_Submission.objects.get(job_id = job_id)
+		#job_submission.input_file = output
+		#job_submission.save()
+			
+		#os.remove(input_file)
+		#except:
+		#	print("Aborted,", job_id)
+	"""
+	class Meta:
+		verbose_name = 'Job Submission'
+
+#Automatically delete the files Job_Submitted had when itself is 
+#deleted from database. 
+@receiver(post_delete, sender=Job_Submission)
 def submission_delete(sender, instance, **kwargs):
-	instance.file.delete(False) 
+	instance.input_file.delete(False)
+	instance.output_file.delete(False) 
 
-class FireflyTracker(models.Model):
+class Example_Data(models.Model):
 
-	queue = models.IntegerField(default = 0)
-
-	queuelist = []
+	output_file        = models.FileField(upload_to='', blank = True)
+	description = models.CharField(max_length = 100) 
 
 	def __str__(self):
-		return "Firefly_manager"
-
-	def myturn(self, id):
-		
-		index = self.queuelist.index(id)
-		
-		if index != 0:
-			return False
-		else:
-			return True
-
-
+		return output_file.name
 
 	

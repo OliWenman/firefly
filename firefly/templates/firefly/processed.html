@@ -1,24 +1,23 @@
-{% load static %}
+{% extends 'firefly/base.html' %}
 
-<head>
+{% block content %}
 
-  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+  </head>
 
-  <link rel="stylesheet" type="text/css" href = "/static/firefly/styles.css" />
+  <body>
+  	<div><header>Thank you for using Firefly.</header></div>
+  	
+  	<section>
+  		<div>Processing finished!</div>
 
-</head>
+  		<a  href="/firefly/download/{{job_id}}"> Download </a> results.
 
-<body>
-	<div><header>Thank you for using Firefly.</header></div>
-	
-	<section>
-		<div>Fitting code complete!</div>
+  		<div>
+  			<a href="/firefly/">Click here</a> to return home and submit another request.
+  		</div>
+  	</section>
+  </body>
 
-		<a  href="/firefly/download/{{results.results_id}}"> Download Document </a>
-        <small>(Uploaded at: {{ results.uploaded_at }})</small>
-
-		<div>
-			<a href="/firefly/">Click here</a> to submit another request.
-		</div>
-	</section>
-</body>
+{% endblock %}

@@ -60,11 +60,11 @@ class Firefly():
 		self.vdisp = 220.
 
 
-	def file_input(self, file:str):
+	def file_input(self, input_file:str):
 
 		#input file with path to read in wavelength, flux and flux error arrays
 		#the example is for an ascii file with extension 'ascii'
-		self.input_file = file
+		self.input_file = input_file
 		self.data = np.loadtxt(self.input_file, unpack=True)
 		self.lamb = self.data[0,:]
 

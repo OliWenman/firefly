@@ -1,7 +1,15 @@
 from django.contrib import admin
 
-from .models import FireflyTracker, SED, FireflyResults
+from .models import Job_Submission
+
+class Job_SubmissionAdmin(admin.ModelAdmin):
+
+	search_filter = ['status', 'job_id']
+
+	list_display = ('job_id',
+					'input_file_',
+					'output_file_',
+					'status')
+
 # Register your models here.
-admin.site.register(FireflyTracker)
-#admin.site.register(SED)
-admin.site.register(FireflyResults)
+admin.site.register(Job_Submission, Job_SubmissionAdmin)

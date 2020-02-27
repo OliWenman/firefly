@@ -1,12 +1,21 @@
-<header>
+{% extends 'firefly/base.html' %}
 
-	Welcome to Oli's website!
+{% block content %}
 
-</header>
+	<body>
+		<meta http-equiv="refresh" content="15" />
 
-<body>
-	Running firefly, this make take several minutes...
+		<link rel="stylesheet" type="text/css" href = "/static/firefly/load_message.css" />
 
-</body>
+		<header><b>Submission sent for processing!</b></header>
+		Your ticket number is <b>{{job_id}}</b>
 
+		<div id="processing_message" >
+			<span>This may take several minutes. </span>
+			<span class = "loader"></span>   
+		</div>
+
+	</body>
+
+{% endblock %}
 
