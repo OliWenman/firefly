@@ -1,0 +1,14 @@
+{% extends 'firefly/base.html' %}
+
+{% block content %}
+	
+	<br>
+	<div>
+		<font size = "+2.5"><b>OOPS! {{ job_id }} doesn't appear to exist!</b></font>
+      	<br>
+      	<br>
+
+      	<a href = "{% url 'firefly:home' %}"><b>Click here</b></a> to return home and submit a job.
+	</div>
+
+{% endblock %}

@@ -62,14 +62,14 @@ class SEDfileform(forms.Form):
 
 class FireFlySettings_Form(forms.Form):
 
-	ageMin = forms.DecimalField(initial = 0, label = "Minimum age", min_value = 0)
+	ageMin           = forms.DecimalField(initial = 0, label = "Minimum age", min_value = 0)
 	#ageMax
-	ZMin = forms.DecimalField(initial = 0, min_value = 0)
-	ZMax = forms.DecimalField(initial = 10, min_value = 0)
-	flux_units = forms.DecimalField(initial = 1, min_value = 0., help_text = "Firefly assumes flux units of erg/s/A/cm^2. Choose factor in case flux is scaled (e.g. flux_units=10**(-17) for SDSS")
-	error = forms.DecimalField(label = "Error(%)", initial   = 10, min_value = 0., max_value = 100.)
-	model_key = forms.CharField(widget = forms.Select(choices = model_key_choices))
-	model_libs = forms.CharField(label = "Model library", widget = forms.Select(choices = model_libs_choices), help_text = "The model flavour")
-	imfs = forms.CharField(label = "IMF", widget = forms.Select(choices = imf_choices), help_text = "Initial mass function model")
-	wave_medium =forms.CharField(label = "Wave medium", widget = forms.Select(choices = wave_medium_choices), help_text = "Specify whether data is in air or vaccum" )
+	ZMin             = forms.DecimalField(initial = 0, min_value = 0)
+	ZMax             = forms.DecimalField(initial = 10, min_value = 0)
+	flux_units       = forms.DecimalField(initial = 1, min_value = 0., help_text = "Firefly assumes flux units of erg/s/A/cm^2. Choose factor in case flux is scaled (e.g. flux_units=10**(-17) for SDSS")
+	error            = forms.DecimalField(label = "Error(%)", initial   = 10, min_value = 0., max_value = 100.)
+	model_key        = forms.CharField(widget = forms.Select(choices = model_key_choices))
+	model_libs       = forms.CharField(label = "Model library", widget = forms.Select(choices = model_libs_choices), help_text = "The model flavour")
+	imfs             = forms.CharField(label = "IMF", widget = forms.Select(choices = imf_choices), help_text = "Initial mass function model")
+	wave_medium      = forms.CharField(label = "Wave medium", widget = forms.Select(choices = wave_medium_choices), help_text = "Specify whether data is in air or vaccum" )
 	downgrade_models = forms.BooleanField(initial = True, required = False, help_text = "Specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion")

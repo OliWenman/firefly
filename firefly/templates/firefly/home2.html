@@ -2,13 +2,12 @@
 
 {% block content %}
 	<head>
-
 	  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
-
 	</head>
 
 	<body class="big">
 		<header><b>Welcome to Firefly!</b></header>
+
 		<form enctype="multipart/form-data" method = "POST">
 	  		{% csrf_token %}
 
@@ -22,7 +21,7 @@
 			<fieldset>
 				<legend><b>SED file</b></legend>
 
-				<a  href="/firefly/download/0"> Download Example data </a>
+				<a  href="{% url 'firefly:download' location='example' job_id=0  %}"> Download Example data </a>
 				<br/>
 
 				{% for field in SED.visible_fields %}
@@ -52,18 +51,8 @@
 			</fieldset>
 
 
-		<button type="submit">Submit</button>
+			<button type="submit">Submit</button>
 		</form>
 
 	</body>
-
-	<script>
-	function hide_error() {
-	  var pm = document.getElementById("SED_ERROR");
-
-	  pm.style.display = "none";
-
-
-	}
-	</script>
 {% endblock %}

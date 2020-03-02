@@ -90,19 +90,26 @@ class Job_Submission(models.Model):
 	class Meta:
 		verbose_name = 'Job Submission'
 
-#Automatically delete the files Job_Submitted had when itself is 
-#deleted from database. 
-@receiver(post_delete, sender=Job_Submission)
-def submission_delete(sender, instance, **kwargs):
-	instance.input_file.delete(False)
-	instance.output_file.delete(False) 
-
 class Example_Data(models.Model):
 
-	output_file        = models.FileField(upload_to='', blank = True)
+	input_file  = models.FileField(upload_to='', blank = False)
 	description = models.CharField(max_length = 100) 
+	example_id     = models.IntegerField(default = 0)
 
 	def __str__(self):
-		return output_file.name
+		return self.input_file.name
 
+	class Meta:
+		verbose_name = 'Example data'
+		verbose_name_plural = verbose_name
 	
+#Automatically delete the files Job_Submitted had when itself is 
+#deleted from database. 
+@receiver(post_delete, sender=Example_Data)
+@receiver(post_delete, sender=Job_Submission)
+def submission_delete(sender, instance, **kwargs):
+	try:
+		instance.input_file.delete(False)
+		instance.output_file.delete(False) 
+	except:
+		pass

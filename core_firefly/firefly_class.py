@@ -86,36 +86,46 @@ class Firefly():
 
 			raise AttributeError(message)
 
-	def settings(self):
+	def settings(self,
+				 models_key,
+				 ageMin,
+				 ZMin,
+				 ZMax,
+				 model_libs,
+				 imfs,
+				 data_wave_medium,
+				 flux_units,
+				 downgrade_models):
+
 		# masking emission lines
 		# N_angstrom_masked set to 20 in _init_ function
 		self.N_angstrom_masked=20
 		self.lines_mask = ((self.restframe_wavelength > 3728 - self.N_angstrom_masked) & (self.restframe_wavelength < 3728 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 5007 - self.N_angstrom_masked) & (self.restframe_wavelength < 5007 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 4861 - self.N_angstrom_masked) & (self.restframe_wavelength < 4861 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 6564 - self.N_angstrom_masked) & (self.restframe_wavelength < 6564 + self.N_angstrom_masked)) 
 
 		#key which models and minimum age and metallicity of models to be used 
-		self.models_key='m11'
-		self.ageMin = 0.
-		self.ageMax = self.cosmo.age(self.redshift).value
-		self.ZMin = 0.001 
-		self.ZMax = 10.
+		self.models_key = models_key #'m11'
+		self.ageMin     = ageMin #0.
+		self.ageMax     = self.cosmo.age(self.redshift).value
+		self.ZMin       = ZMin #0.001 
+		self.ZMax       = ZMax #10.
 
 		#model flavour
-		self.model_libs=['MILES']
+		self.model_libs= [model_libs] #['MILES']
 
 		#model imf
-		self.imfs=['kr']
+		self.imfs = [imfs] #['kr']
 
 		#specify whether data in air or vaccum
-		self.data_wave_medium='air'
+		self.data_wave_medium = data_wave_medium #'air'
 
 		#Firefly assumes flux units of erg/s/A/cm^2.
 		#Choose factor in case flux is scaled
 		#(e.g. flux_units=10**(-17) for SDSS)
-		self.flux_units=1
+		self.flux_units= flux_units #1
 
 		#specify whether models should be downgraded 
 		#to the instrumental resolution and galaxy velocity dispersion
-		self.downgrade_models=True
+		self.downgrade_models = downgrade_models #True
 
 
 	def run(self, outputFolder, file_id):

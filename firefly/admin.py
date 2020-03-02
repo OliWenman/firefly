@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Job_Submission
+from .models import Job_Submission, Example_Data
 
 class Job_SubmissionAdmin(admin.ModelAdmin):
 
@@ -13,3 +13,4 @@ class Job_SubmissionAdmin(admin.ModelAdmin):
 
 # Register your models here.
 admin.site.register(Job_Submission, Job_SubmissionAdmin)
+admin.site.register(Example_Data)

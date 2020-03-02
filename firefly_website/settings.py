@@ -26,7 +26,7 @@ with open('./../SECRET_KEY_FIREFLY.txt') as f:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 BACKGROUND_TASK_RUN_ASYNC = False
 MAX_ATTEMPTS = 1

@@ -2,22 +2,56 @@
 
 {% block content %}
 
+</script>
+
+  <script type="text/x-mathjax-config">
+  MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
+      tex2jax: { inlineMath: [ ["\\$", "\\$"], ["\\(", "\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
+      TeX: {  noUndefined: { attributes: { mathcolor: "red", mathbackground: "#FFEEEE", mathsize: "90%" } } },
+      messageStyle: "none"
+  });
+  </script>
+  <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
+
+  <br/>
+
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <link rel="stylesheet" type="text/css" href = "/static/firefly/layout.css" />
   </head>
 
-  <body>
-  	<div><header>Thank you for using Firefly.</header></div>
-  	
-  	<section>
-  		<div>Processing finished!</div>
+  <section>
+    <div><b>Processing finished!</b> Thank you for using Firefly.</div>
 
-  		<a  href="/firefly/download/{{job_id}}"> Download </a> results.
+    <br/>
 
-  		<div>
-  			<a href="/firefly/">Click here</a> to return home and submit another request.
-  		</div>
-  	</section>
-  </body>
+    <a  href="{% url 'firefly:download' location='results' job_id=job_id %}"> <b>Download results.</b></a>  
+    These results will remain in our database until (place holder), after that they will be deleted.
 
+    <div>
+      <br/>
+      <b><a href="{% url 'firefly:home' %}">Click here</a></b> to return home and submit another request.
+    </div>
+  </section>
+
+
+
+  <div class = "row">
+
+    <div class = "column">
+      <img src="data:image/png;base64,{{ plot|safe }}">
+    </div>
+
+    <div class = "column">
+      <br>
+      <br>
+      <b>Firefly calculated the following based on the model used on your dataset.</b>
+      <ul ><font size="4" style="line-height: 2.5; ">
+        <li>\$  \left[ Z \over H \right] \$: {{metallicity}} </li>
+        <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{mass}} </li>
+        <li><i> Age </i>: {{age}} </li>
+        <li>\$ E(B-V) \$: {{light}}</li>
+      </ul></font>
+    </div>
+  </div>
 {% endblock %}
