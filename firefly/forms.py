@@ -43,7 +43,15 @@ class SEDfileform(forms.Form):
 		except(ValueError):
 			raise ValidationError(u'File is corrupted!')
 
-	input_file = forms.FileField(widget=forms.FileInput(attrs={'accept' : '.ascii'}), validators = [validate_file_okay])
+	input_file = forms.FileField(required = False, 
+								 widget=forms.FileInput(attrs={'accept' : '.ascii'}), 
+								 validators = [validate_file_okay])
+	
+	#def __init__(self, *args, **kwargs):
+
+	#	file_required = kwargs.pop('extra', False)
+	#	super(SEDfileform, self).__init__(*args, **kwargs)
+	#	self.fields['input_file'].required = file_required
 	"""
 	def is_valid(self, file):
 		
@@ -60,6 +68,24 @@ class SEDfileform(forms.Form):
 			return False
 	"""
 
+emissionline_choices2 = [('HeII','HeII'), 
+					    ('NeV','NeV'),
+					    ('OII', 'OII'),
+					    ('NeIII', 'NeIII'),
+					    ('H5', 'H5'),
+					    ('He', 'He'),
+					    ('Hd', 'Hd'),
+					    ('Hg', 'Hg'),
+					    ('OIII', 'OIII'),
+					    ('ArIV', 'ArIV'),
+					    ('Hb', 'Hb'),
+					    ('NI', 'HI'),
+					    ('HeI', 'HeI'),
+					    ('OI', 'OI'),
+					    ('NII', 'NII'),
+					    ('SII', 'SII'),
+					    ('ArIII', 'ArIII')]
+
 class FireFlySettings_Form(forms.Form):
 
 	ageMin           = forms.DecimalField(initial = 0, label = "Minimum age", min_value = 0)
@@ -73,3 +99,55 @@ class FireFlySettings_Form(forms.Form):
 	imfs             = forms.CharField(label = "IMF", widget = forms.Select(choices = imf_choices), help_text = "Initial mass function model")
 	wave_medium      = forms.CharField(label = "Wave medium", widget = forms.Select(choices = wave_medium_choices), help_text = "Specify whether data is in air or vaccum" )
 	downgrade_models = forms.BooleanField(initial = True, required = False, help_text = "Specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion")
+
+	#extra_field_count = forms.CharField(widget=forms.HiddenInput())
+
+	"""
+	def __init__(self, *args, **kwargs):
+		extra_fields = kwargs.pop('extra', 0)
+
+		super(FireFlySettings_Form, self).__init__(*args, **kwargs)
+		self.fields['extra_field_count'].initial = extra_fields
+
+		
+		for index in range(int(extra_fields)):
+			# generate extra fields in the number specified via extra_fields
+			self.fields['extra_field_{index}'.format(index=index)] = forms.CharField(label = "Emission line", widget = forms.Select(choices = emissionline_choices2))
+	"""
+
+emissionline_choices = [('HeII','He_II'), 
+					    ('NeV','Ne_V'),
+					    ('OII', 'O_II'),
+					    ('NeIII', 'Ne_III'),
+					    ('H5', 'H5'),
+					    ('He', 'He'),
+					    ('Hd', 'Hd'),
+					    ('Hg', 'Hg'),
+					    ('OIII', 'O_III'),
+					    ('ArIV', 'Ar_IV'),
+					    ('Hb', 'Hb'),
+					    ('HI', 'H_I'),
+					    ('HeI', 'He_I'),
+					    ('OI', 'O_I'),
+					    ('NII', 'N_II'),
+					    ('SII', 'S_II'),
+					    ('ArIII', 'Ar_III')]
+
+class Emissionlines_Form(forms.Form):
+	
+	extra_field_count = forms.IntegerField(initial = 1,
+										   min_value = 0,
+										   max_value = 10,
+										   label = "Number of emissions lines")
+
+	def __init__(self, *args, **kwargs):
+
+		extra_fields = kwargs.pop('extra', 0)
+
+		super(Emissionlines_Form, self).__init__(*args, **kwargs)
+		self.fields['extra_field_count'].initial = extra_fields
+
+		for index in range(int(extra_fields)):
+			# generate extra fields in the number specified via extra_fields
+			self.fields['Emission_line_{index}'.format(index=index+1)] = forms.CharField(required=False, widget = forms.Select(choices = emissionline_choices))
+

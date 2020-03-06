@@ -16,7 +16,7 @@ from background_task.models import CompletedTask
 
 #Import my model and forms
 from .models import Job_Submission, Example_Data
-from .forms import FireFlySettings_Form, SEDform, SEDfileform
+from .forms import FireFlySettings_Form, SEDform, SEDfileform, Emissionlines_Form
 
 #Import firefly
 from core_firefly import firefly_class
@@ -30,6 +30,7 @@ from io import BytesIO
 import base64
 import matplotlib.pyplot as plt
 from astropy.io import fits
+import sys, traceback
 
 time_in_database = 60*60
 clean_db = True
@@ -57,27 +58,28 @@ def firefly_run(input_file,
 				model_libs,
 				imfs,
 				wave_medium,
-				downgrade_models):
+				downgrade_models,
+				emissionline_list):
 
+	#warnings.filterwarnings("error")
+
+	#Setup firefly settings
+	firefly = firefly_class.Firefly()
+	firefly.model_input()
+	firefly.file_input(input_file = input_file)
+
+	firefly.settings(ageMin           = 0,
+					 ZMin             =  ZMin,
+					 ZMax             = ZMax,
+					 flux_units       = flux_units,
+					 models_key       = models_key,
+					 model_libs       = model_libs,
+					 imfs             = imfs,
+					 data_wave_medium = wave_medium,
+					 downgrade_models = downgrade_models)
 	try:
-		#warnings.filterwarnings("error")
-
-		#Setup firefly settings
-		firefly = firefly_class.Firefly()
-		firefly.model_input()
-		firefly.file_input(input_file = input_file)
-
-		firefly.settings(ageMin           = 0,
-						 ZMin             = ZMin,
-						 ZMax             = ZMax,
-						 flux_units       = flux_units,
-						 models_key       = models_key,
-						 model_libs       = model_libs,
-						 imfs             = imfs,
-						 data_wave_medium = wave_medium,
-						 downgrade_models = downgrade_models)
-
-		#try:
+		firefly.mask_emissionlines(element_emission_lines = emissionline_list,
+								   N_angstrom_masked = 20)
 
 		#Run firefly to process the data
 		output = firefly.run(settings.MEDIA_ROOT, job_id)
@@ -94,6 +96,10 @@ def firefly_run(input_file,
 			clean_database(job_id)
 			
 	except:
+		exc_type, exc_value, exc_traceback = sys.exc_info()
+		print(exc_type)
+		print(exc_value)
+		print(exc_traceback)
 
 		#Get the Job_Submission and save it to the database.
 		job_submission             = Job_Submission.objects.get(job_id = job_id)
@@ -102,94 +108,120 @@ def firefly_run(input_file,
 
 		clean_database(job_id)
 
+
 def home(request):
 
 	#Post method shows submitting form data
 	if request.method == 'POST':
 
+		#try:
+		n = request.POST.get('extra_field_count')
+		print(request.POST)
+		#except:
+		#	n = 1
+
 		#Get the form submitted and check it's valid for use
-		settings_form = FireFlySettings_Form(request.POST)
-		sedfile_form  = SEDfileform(request.POST, request.FILES)
+		emissionlines_form  = Emissionlines_Form(request.POST, extra = n)
+		settings_form       = FireFlySettings_Form(request.POST)
+		sedfile_form        = SEDfileform(request.POST, request.FILES)
 
-		#if settings_form.is_valid() and sedfile_form.is_valid(sed_file):
-		if settings_form.is_valid() and sedfile_form.is_valid():
+		if 'submit' in request.POST:	
 
-			#Use the date and time to make unique job_id via scrambling the digits.
-			time_stamp = time.strftime("%Y%m%d%H%M%S")
-			job_id = int(''.join(random.sample(time_stamp,len(time_stamp))))
+			#sedfile_form = SEDfileform(request.POST, request.FILES, extra = True)
+			sedfile_form.fields['input_file'].required = True
 
-			#Get the SED input_file
-			sed_file = request.FILES.get('input_file')
-			
-			#Create a new input_file name to make it unique.
-			sed_file_name = sed_file.name[0:-6] + "_" +str(job_id) + ".ascii"
-			sed_file_path = os.path.join(settings.MEDIA_ROOT, sed_file_name)
+			#if settings_form.is_valid() and sedfile_form.is_valid(sed_file):
+			if settings_form.is_valid() and sedfile_form.is_valid():
 
-			#Save the input_file to disk
-			file_destination = open(sed_file_path, 'wb+')
-			for chunk in sed_file.chunks():
-				file_destination.write(chunk)
-			file_destination.close()
+				#Use the date and time to make unique job_id via scrambling the digits.
+				time_stamp = time.strftime("%Y%m%d%H%M%S")
+				job_id = int(''.join(random.sample(time_stamp,len(time_stamp))))
 
-			#Get the variables from the form.
-			ZMin             = request.POST['ZMin']
-			ZMax             = request.POST['ZMax']
-			flux_units       = request.POST['flux_units']
-			error            = request.POST['error']
-			models_key       = request.POST['model_key']
-			model_libs       = request.POST['model_libs']
-			imfs             = request.POST['imfs']
-			wave_medium      = request.POST['wave_medium']
-			try:
-				downgrade_models = request.POST['downgrade_models']
-			except MultiValueDictKeyError:
-				downgrade_models = False
+				#Get the SED input_file
+				sed_file = request.FILES.get('input_file')
+				
+				#Create a new input_file name to make it unique.
+				sed_file_name = sed_file.name[0:-6] + "_" +str(job_id) + ".ascii"
+				sed_file_path = os.path.join(settings.MEDIA_ROOT, sed_file_name)
 
-			#Create Job_Submission instance to save to database
-			job_submission = Job_Submission.objects.create(job_id     = job_id,
-														   status     = 'processing',
-														   input_file = sed_file_path)  
+				#Save the input_file to disk
+				file_destination = open(sed_file_path, 'wb+')
+				for chunk in sed_file.chunks():
+					file_destination.write(chunk)
+				file_destination.close()
 
-			"""
-			job_submission.process_input(input_file             = sed_file_path, 
-										 job_id          = job_id,
-										 ZMin             = ZMin,
-										 ZMax             = ZMax,
-										 flux_units       = flux_units,
-										 error            = error,
-										 model_key        = model_key,
-										 model_libs       = model_libs,
-										 imfs             = imfs,
-										 wave_medium      = wave_medium,
-										 downgrade_models = downgrade_models)
-			"""
-			#Run firefly task in the background
-			firefly_run(input_file       = sed_file_path, 
-						job_id           = job_id,
-						ageMin           = 0,
-						ZMin             = float(ZMin),
-						ZMax             = float(ZMax),
-						flux_units       = float(flux_units),
-						error            = float(error),
-						models_key       = models_key,
-						model_libs       = model_libs,
-						imfs             = imfs,
-						wave_medium      = wave_medium,
-						downgrade_models = downgrade_models)
+				#Get the variables from the form.
+				ZMin             = request.POST['ZMin']
+				ZMax             = request.POST['ZMax']
+				flux_units       = request.POST['flux_units']
+				error            = request.POST['error']
+				models_key       = request.POST['model_key']
+				model_libs       = request.POST['model_libs']
+				imfs             = request.POST['imfs']
+				wave_medium      = request.POST['wave_medium']
+				try:
+					downgrade_models = request.POST['downgrade_models']
+				except MultiValueDictKeyError:
+					downgrade_models = False
 
-			#Use HttpResponseRedirect when submitting forms to stop resubmitting
-			return HttpResponseRedirect(reverse('firefly:processed', args=(job_id,)))
-			
-		#Otherwise redirect back to form page with the form that was used, display errors to user
-		else:
-			return render(request, 'firefly/home2.html', {'form':settings_form, 'SED':sedfile_form})
-	
+				emissionlines = []
+				for i in range(int(n)):
+					emissionlines.append(request.POST['Emission_line_' + str(i +1)])
+
+				print (emissionlines)
+				#Create Job_Submission instance to save to database
+				job_submission = Job_Submission.objects.create(job_id     = job_id,
+															   status     = 'processing',
+															   input_file = sed_file_path)  
+
+				#Run firefly task in the background
+				firefly_run(input_file       = sed_file_path, 
+							job_id           = job_id,
+							ageMin           = 0,
+							ZMin             = float(ZMin),
+							ZMax             = float(ZMax),
+							flux_units       = float(flux_units),
+							error            = float(error),
+							models_key       = models_key,
+							model_libs       = model_libs,
+							imfs             = imfs,
+							wave_medium      = wave_medium,
+							downgrade_models = downgrade_models,
+							emissionline_list= emissionlines)
+
+				#Use HttpResponseRedirect when submitting forms to stop resubmitting
+				return HttpResponseRedirect(reverse('firefly:processed', args=(job_id,)))
+
+			#Otherwise redirect back to form page with the form that was used, display errors to user
+			else:
+				return render(request, 
+							 'firefly/home2.html', 
+							 {'form':settings_form, 
+							 'SED':sedfile_form,
+							 'emissionlines_form' : emissionlines_form})
+
+		elif 'add' in request.POST:
+
+			sedfile_form.fields['input_file'].required = False
+			return render(request, 
+						 'firefly/home2.html', 
+						 {'form':settings_form, 
+						 'SED':sedfile_form,
+						 'emissionlines_form' : emissionlines_form})
+
 	#Create a new form instance if first time visiting site
+	emissionlines_form = Emissionlines_Form(extra = 1)
 	settings_form = FireFlySettings_Form()
 	sedfile_form  = SEDfileform()
 
 	#Dispaly a new form to user if first time on site.
-	return render(request, 'firefly/home2.html', {'form':settings_form, 'SED':sedfile_form})
+	return render(request, 
+				 'firefly/home2.html', 
+				 {'form': settings_form, 
+				 'SED'  : sedfile_form,
+				 'emissionlines_form' : emissionlines_form})
+
+
 
 from django.db.models import Q
 
@@ -231,7 +263,7 @@ def processed(request, job_id):
 		plot_size = (8,5)
 		fig       = plt.figure(figsize = plot_size)
 		ax        = fig.add_subplot(111)
-		ax.set_xlabel('Wavelength')
+		ax.set_xlabel('Wavelength (Å)')
 		ax.set_ylabel('Flux')
 		plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
 

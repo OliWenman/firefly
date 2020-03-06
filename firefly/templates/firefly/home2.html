@@ -9,14 +9,7 @@
 		<header><b>Welcome to Firefly!</b></header>
 
 		<form enctype="multipart/form-data" method = "POST">
-	  		{% csrf_token %}
-
-			{{ form.non_field_errors }}
-
-			{% for hidden_field in form.hidden_fields %}
-				{{ hidden_field.errors }}
-				{{ hidden_field }}
-			{% endfor %}
+			{% csrf_token %}
 
 			<fieldset>
 				<legend><b>SED file</b></legend>
@@ -29,6 +22,30 @@
 					<br/><b id="SED_ERROR"><font color="red">{{field.errors}}</font></b >
 				{% endfor %}
 
+			</fieldset>
+
+			<fieldset>
+				<legend><b>Masking Emission lines</b></legend>
+
+				{% for field in emissionlines_form.visible_fields %}
+					<tr>
+						<div id="forms" class="tooltip"> <th>{{ field.label_tag }}</th>
+							{% if field.help_text %}
+	              				<span class="tooltiptext">{{ field.help_text }}</span>
+	            			{% endif %}
+	            		</div>
+						
+						<td>
+							{{ field.errors }}
+							{{ field }}
+							{% if field.label == 'Number of emissions lines' %}
+								<button name = "add"  id = "add">Add</button>
+
+							{% endif %}
+						</td>
+					</tr>
+					<br/>
+				{% endfor %}
 			</fieldset>
 
 			<fieldset>
@@ -50,9 +67,9 @@
 				{% endfor %}
 			</fieldset>
 
+			<button type="submit" name = "submit" id = "submit">Submit</button>
 
-			<button type="submit">Submit</button>
 		</form>
-
 	</body>
+
 {% endblock %}
