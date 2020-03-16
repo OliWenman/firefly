@@ -22,14 +22,13 @@ import subprocess
 import core_firefly.firefly.firefly_setup as setup
 import core_firefly.firefly.firefly_models as spm
 
+from astropy.io import fits
+
 class Firefly():
 
 	def __init__(self):
 
-		#FF_DIR = sys.path.append(os.getcwd())
-		#FF_DIR = os.getcwd()
-		FF_DIR = "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/"
-
+		FF_DIR = os.path.dirname(os.path.abspath(__file__))
 
 		os.environ['FF_DIR'] = FF_DIR
 
@@ -41,6 +40,7 @@ class Firefly():
 		#specify whether write results
 		self.write_results    = True
 		self.override_results = True
+		self.N_angstrom_masked = 20
 
 
 	def set_enviromment_var(var: str, path: str):
@@ -114,7 +114,6 @@ class Firefly():
 		#key which models and minimum age and metallicity of models to be used 
 		self.models_key = models_key #'m11'
 		self.ageMin     = ageMin #0.
-		self.ageMax     = self.cosmo.age(self.redshift).value
 		self.ZMin       = ZMin #0.001 
 		self.ZMax       = ZMax #10.
 
@@ -142,7 +141,6 @@ class Firefly():
 		Firefly needs to mask emission lines of elements as this can affect the fitting.
 		"""
 		self.N_angstrom_masked = N_angstrom_masked
-
 
 		#Dictionary of corrosponding elements to their emission lines
 		emission_dict = {'HeII' : 3202.15,
@@ -187,6 +185,7 @@ class Firefly():
 					for n in range(n_lines):
 
 						n_line = line[n]
+
 						#Creates the boolean array
 						temp_lines_mask = ((self.restframe_wavelength > n_line - self.N_angstrom_masked) & (self.restframe_wavelength < n_line + self.N_angstrom_masked))
 						#Adds the boolean array to the exisiting one to save it
@@ -210,19 +209,72 @@ class Firefly():
 				n += 1
 
 
-	def run(self, outputFolder, file_id):
+	def run(self, 
+			input_file, 
+			outputFolder,
+			emissionline_list,
+			N_angstrom_masked):
 
 		#set output folder and output filename in firefly directory 
 		#and write output file
 
+		#input file with path to read in wavelength, flux and flux error arrays
+		#the example is for an ascii file with extension 'ascii'
+		self.input_file = input_file
+
+		file_extension = os.path.splitext(input_file)[1]			
+		if file_extension == ".ascii":
+
+			data = np.loadtxt(self.input_file, unpack=True)
+			lamb = data[0,:]
+
+			self.wavelength = data[0,:][np.where(lamb>3600*(1+self.redshift))]
+			self.flux = data[1,:][np.where(lamb>3600*(1+self.redshift))]
+			self.error = self.flux*0.1
+			self.restframe_wavelength = self.wavelength/(1+self.redshift)
+
+			#instrumental resolution
+			self.r_instrument = np.zeros(len(self.wavelength))
+
+			for wi, w in enumerate(self.wavelength):
+				self.r_instrument[wi] = 600
+
+		else:
+
+			hdul = fits.open(input_file)
+			data_set0 = hdul[0].data
+			data_set1 = hdul[1].data
+			data_set2 = hdul[2].data
+
+			#Variables from fits file?
+			self.redshift = float(data_set2['Z'])
+			self.ra       = float(data_set2['PLUG_RA'])  #Not consistant, RA or PLUG_RA?
+			self.dec      = float(data_set2['PLUG_DEC']) #Not consistant, DEC or PLUG_DEC?
+			self.vdisp    = float(data_set2['VDISP'])
+
+			lamb            = 10**data_set1['loglam']
+			self.wavelength = lamb[np.where(lamb > 3600 * (1 + self.redshift))]
+			self.flux       = data_set1['flux'][np.where(lamb > 3600 * (1 + self.redshift))]
+			self.error      = data_set1['ivar'] 
+			self.restframe_wavelength = self.wavelength/(1+self.redshift)
+			self.r_instrument = np.zeros(len(self.wavelength))
+			for wi, w in enumerate(self.wavelength):
+				self.r_instrument[wi] = 600 #1800#Where is the resolution in the file? Optional input?
+			hdul.close()
+
+		self.ageMax = self.cosmo.age(self.redshift).value
+
+		self.mask_emissionlines(element_emission_lines = emissionline_list,
+								N_angstrom_masked = N_angstrom_masked)
+
 		t0 = time.time()
 
-		#outputFolder = "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/media"
-		try:
-			output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:-6] ) + ".fits"
-		except(TypeError):
-			output_file = join( outputFolder , 'spFly-' + self.input_file.name)[0:-6] + "_" +str(file_id) + ".fits"
+		if file_extension == ".ascii":
+			n = -6
+		elif file_extension == ".fits":
+			n = -5	
 
+		output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:n] ) + ".fits"
 
 		if os.path.isfile(output_file) and self.override_results == False:
 			print()
@@ -257,46 +309,49 @@ class Firefly():
 		spec=setup.firefly_setup(path_to_spectrum  = self.input_file, 
 								 N_angstrom_masked = self. N_angstrom_masked)
 		
-		spec.openSingleSpectrum(self.wavelength, 
-								self.flux, 
-								self.error, 
-								self.redshift, 
-								self.ra, 
-								self.dec, 
-								self.vdisp, 
-								self.lines_mask, 
-								self.r_instrument)
+		if file_extension == ".ascii":
+			spec.openSingleSpectrum(self.wavelength, 
+									self.flux, 
+									self.error, 
+									self.redshift, 
+									self.ra, 
+									self.dec, 
+									self.vdisp, 
+									self.lines_mask, 
+									self.r_instrument)
+		else:
+			spec.openSDSSSpectrum("sdssMain")
 
 		#spec.openMANGASpectrum(data_release, path_to_logcube, path_to_drpall, bin_number, plate_number, ifu_number)
 
-		did_not_converge = 0.
+		self.did_not_converge = 0.
 		try :
 			#prepare model templates
 			model = spm.StellarPopulationModel(spec, 
 											   output_file, 
 											   self.cosmo, 
-											   models = self.models_key, 
-											   model_libs = self.model_libs, 
-											   imfs = self.imfs, 
-											   age_limits = [self.ageMin,self.ageMax], 
-											   downgrade_models = self.downgrade_models, 
-											   data_wave_medium = self.data_wave_medium, 
-											   Z_limits = [self.ZMin, self.ZMax], 
+											   models                = self.models_key, 
+											   model_libs            = self.model_libs, 
+											   imfs                  = self.imfs, 
+											   age_limits            = [self.ageMin,self.ageMax], 
+											   downgrade_models      = self.downgrade_models, 
+											   data_wave_medium      = self.data_wave_medium, 
+											   Z_limits              = [self.ZMin, self.ZMax], 
 											   use_downgraded_models = False, 
-											   write_results = self.write_results, 
-											   flux_units = self.flux_units)
+											   write_results         = self.write_results, 
+											   flux_units            = self.flux_units)
 			#initiate fit
 			model.fit_models_to_data()
 			tables.append( model.tbhdu )
-		except (ValueError):
-			tables.append( model.create_dummy_hdu() )
-			did_not_converged +=1
-			print('did not converge')
-		if did_not_converge < 1 :
 			complete_hdus = spm.pyfits.HDUList(tables)
 			if os.path.isfile(output_file):
 				os.remove(output_file)		
 			complete_hdus.writeto(output_file)
+
+		except (ValueError):
+			tables.append( model.create_dummy_hdu() )
+			#self.did_not_converged +=1
+			print('did not converge')
 
 		print()
 		print ("Done... total time:", int(time.time()-t0) ,"seconds.")

@@ -3,8 +3,12 @@ from astropy.io import fits
 import matplotlib.pyplot as py
 import numpy as np
 import sys
+import os
 
-hdul = fits.open(sys.argv[1])
+cur_path = os.getcwd()
+file_path = os.path.join(cur_path, "..", "media", "spFly-Example_CDFS022490_55300102132524.fits")
+
+hdul = fits.open(file_path)
 data=hdul[1].data
 wave = data['wavelength']
 flux = data['original_data']
@@ -36,7 +40,7 @@ py.plot(wave,model)
 py.show()
 
 fig1=py.figure()
-py.xlim(0,15)
+#py.xlim(0,15)
 py.xlabel('lookback time')
 py.ylabel('frequency/Gyr')
 #py.bar(10**(csp_age),csp_light,width=1,align='center',edgecolor='k',linewidth=2)
@@ -44,7 +48,7 @@ py.bar(10**(csp_age),csp_light,width=1,align='center',alpha=0.5)
 py.scatter(10**(csp_age),csp_light)
 
 fig2=py.figure()
-py.xlim(-2,0.5)
+#py.xlim(-2,0.5)
 py.xlabel('lookback time')
 py.ylabel('frequency/Gyr')
 #py.bar(10**(csp_age),csp_light,width=1,align='center',edgecolor='k',linewidth=2)

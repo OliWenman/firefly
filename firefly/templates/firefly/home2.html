@@ -5,7 +5,28 @@
 	  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
 	</head>
 
+	<style type="text/css">
+		td
+	    {
+	        padding: 0px;
+	        margin: 0px;
+	        height: 0px;
+	        border: none;
+	        border-spacing: 0px;
+	    }
+	    tr
+	    {
+	        padding: 0px;
+	        margin: 0px;
+	        height: 0px;
+	        border: none;
+	        border-spacing: 0px;
+	    }
+	</style>
+
 	<body class="big">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
+		<script type="text/javascript"> var s = 0; var m = 1;</script>
 		<header><b>Welcome to Firefly!</b></header>
 
 		<form enctype="multipart/form-data" method = "POST">
@@ -22,54 +43,199 @@
 					<br/><b id="SED_ERROR"><font color="red">{{field.errors}}</font></b >
 				{% endfor %}
 
+				<div id="test">
+					<script type="text/javascript"> document.getElementById("test").style.display = 'none'; </script>
+					<font size="-1">
+						<br>
+						ASCII files require additional inputs.
+						<br>
+					</font>
+					<table>
+						{% for field in ascii_additional_inputs.visible_fields %}
+							<tr>
+								<td><div class="tooltip"> {{ field.label_tag }}
+									{% if field.help_text %}
+			              				<span class="tooltiptext">{{ field.help_text }}</span>
+			            			{% endif %}
+			            		</div></td>
+								
+								<td>
+									{{ field }}
+								</td>
+							</tr>
+						{% endfor %}
+					</table>
+				</div>
+
+			</fieldset>
+
+			<fieldset>
+				<legend><b>Model</b></legend>
+				<table>
+					{% for field in form.visible_fields %}
+					<tr>
+						<td><div class="tooltip">{{ field.label_tag }}
+							{% if field.help_text %}
+	              				<span class="tooltiptext">{{ field.help_text }}</span>
+	            			{% endif %}
+	            		</div></td>
+						
+						{{ field.errors }}
+						<td>{{ field }}</td>
+					</tr>
+					{% endfor %}
+				</table>
 			</fieldset>
 
 			<fieldset>
 				<legend><b>Masking Emission lines</b></legend>
 
-				{% for field in emissionlines_form.visible_fields %}
-					<tr>
-						<div id="forms" class="tooltip"> <th>{{ field.label_tag }}</th>
-							{% if field.help_text %}
-	              				<span class="tooltiptext">{{ field.help_text }}</span>
-	            			{% endif %}
-	            		</div>
-						
-						<td>
-							{{ field.errors }}
-							{{ field }}
-							{% if field.label == 'Number of emissions lines' %}
-								<button name = "add"  id = "add">Add</button>
+				<font size="-1">
+					If your data contains emission lines, specify them as this can affect the fitting Firefly performs on your data.
+					<br>
+					<br>
+				</font>
+				<table>
+					{% for field in emissionlines_form.visible_fields %}
+						<tr>
+							<td><div id="forms" class="tooltip"> {{ field.label_tag }}
+								{% if field.help_text %}
+		              				<span class="tooltiptext">{{ field.help_text }}</span>
+		            			{% endif %}
+		            		</div></td>
+							
+							<td>
+								{{ field }}
 
-							{% endif %}
-						</td>
-					</tr>
-					<br/>
-				{% endfor %}
-			</fieldset>
+								<script type="text/javascript"> 
+									if ("{{field.label}}".includes('Emission line ')) 
+									{
+										if (m <= "{{emissionlines_form.extra_field_count.value}}") {++m;}
+										else {
 
-			<fieldset>
-				<legend><b>Model</b></legend>
-				{% for field in form.visible_fields %}
-					<tr>
-						<div class="tooltip"> <th>{{ field.label_tag }}</th>
-							{% if field.help_text %}
-	              				<span class="tooltiptext">{{ field.help_text }}</span>
-	            			{% endif %}
-	            		</div>
-						
-						<td>
-							{{ field.errors }}
-							{{ field }}
-						</td>
-					</tr>
-					<br/>
-				{% endfor %}
+											var name = 'id_Emission_line_';
+											var temp = "{{forloop.counter}}" - s;
+								  			var new_name = name + temp;
+
+								  			$('label[for="'+new_name+'"], input[id="'+new_name+'"]').css("display","none");
+								  			document.getElementById(new_name).style.display = 'none';
+								  		}
+									}
+									else{
+										++s;
+									}	
+								</script>
+							</td>
+						</tr>
+					{% endfor %}
+				</table>
+				<button id="add-another" type="button">add</button>
+				<button id="remove-another" type="button">remove</button>
 			</fieldset>
 
 			<button type="submit" name = "submit" id = "submit">Submit</button>
 
 		</form>
+
+		<script type="text/javascript">
+
+			//Find the extra_field_count variable for emissionlines_form and make it a hidden variable
+			document.getElementById('id_extra_field_count').style.display = 'none';
+			$('label[for="id_extra_field_count"], input[name="id_extra_field_count"]').css("display","none");
+
+			//Function to hide additional ascii inputs
+			function ascii_inputs_visible(value){
+
+				var display;
+				var required;
+				if (value == true){
+					display = '';
+					required = true;
+				}
+				else {
+					display = 'none';
+					required = false;
+				}
+				document.getElementById("test").style.display = display;
+				document.getElementById("id_ra").required = required;
+				document.getElementById("id_dec").required = required;
+				document.getElementById("id_vdisp").required = required;
+				document.getElementById("id_redshift").required = required;
+				document.getElementById("id_r_instrument").required = required;
+
+				//$('label[for=id_ra], input#id_ra').css("display","");
+			};
+
+			//Hide the inputs 
+			ascii_inputs_visible(false);
+
+			//Detect when the file input value has changed, reveal additional info if ascii file
+			$('input[type=file]').change(function() {
+
+    			var fileName = $("input[type=file]").val();
+    			var extension = fileName.split('.').pop();
+
+    			// returns true if the string is not empty
+    			if(fileName) { 
+    				if (extension == 'ascii') {ascii_inputs_visible(true);}
+        			else {ascii_inputs_visible(false);}
+    			} 
+    			else {ascii_inputs_visible(false);}
+			});
+
+			//Get the number of emission line fields that are currently shown
+			var num_fields = Number($("[name=extra_field_count]").val()) + 1;
+
+			//When add button clicked, add an additional field
+			$("#add-another").click(function() {
+
+				document.getElementById("id_N_angstrom_masked").style.display = '';
+				$('label[for="id_N_angstrom_masked"], input[name="'+name+'"]').css("display","");
+			    var name = 'id_Emission_line_' + num_fields;
+			   
+			    $('label[for="'+name+'"], input[name="'+name+'"]').css("display","");
+
+			    document.getElementById(name).options.selectedIndex = 0;
+			    document.getElementById(name).style.display = '';
+
+			    num_fields = num_fields + 1;
+
+			    document.getElementById('id_extra_field_count').value++;
+			});
+
+			//When remove button clicked, remove an additional field.
+			$("#remove-another").click(function() {
+			    
+			    num_fields = num_fields -1;
+			    if (num_fields <= 1) {
+			    	
+			    	num_fields = 1; 
+			    	document.getElementById("id_N_angstrom_masked").style.display = 'none';
+			    	$('label[for="id_N_angstrom_masked"]').css("display","none");
+			    }
+			    var name_id = 'id_Emission_line_' + num_fields;
+
+			    $('label[for="'+name_id+'"], input[name="'+name_id+'"]').css("display","none");
+
+			    document.getElementById(name_id).options.selectedIndex = 0;
+			    document.getElementById(name_id).style.display = 'none';
+
+			    document.getElementById('id_extra_field_count').value--;
+			    //console.log(document.getElementById('id_extra_field_count').value);
+			});
+
+			//var name = 'id_Emission_line_';
+			//var n = document.getElementById('id_extra_field_count').value;
+			//document.getElementById('id_extra_field_count').style.display = 'none'
+			//$('label[for="id_extra_field_count"]').css("display","none");
+			//for (var i = 1; i <= n; i++) {
+  			//	console.log(i);
+  			//	var new_name = name + i;
+  			//	$('label[for="'+new_name+'"], input[name="'+new_name+'"]').css("display","none");
+  			//	document.getElementById(name + i).style.display = 'none';
+  			//};
+		</script>
 	</body>
 
 {% endblock %}
+

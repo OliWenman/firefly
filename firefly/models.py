@@ -42,8 +42,8 @@ class Job_Submission(models.Model):
 	#1)pre-processing
 	#2)processing
 	#3)complete/failed
-	status      = models.CharField(default = 'preprocessing', max_length=14)
-	
+	status      = models.CharField(default = 'preprocessing', max_length=20)
+
 	def output_file_(self):
 		return os.path.basename(self.output_file.name)
 
