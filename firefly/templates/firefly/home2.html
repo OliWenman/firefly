@@ -35,6 +35,11 @@
 			<fieldset>
 				<legend><b>SED file</b></legend>
 
+				<font>
+					To see the correct fits file formats, <a  href="{% url 'firefly:fits_format' %}"> click here.</a>
+				</font>
+				<br/>
+
 				<a  href="{% url 'firefly:download' location='example' job_id=0  %}"> Download Example data </a>
 				<br/>
 
@@ -110,12 +115,13 @@
 								<script type="text/javascript"> 
 									if ("{{field.label}}".includes('Emission line ')) 
 									{
+
 										if (m <= "{{emissionlines_form.extra_field_count.value}}") {++m;}
 										else {
 
 											var name = 'id_Emission_line_';
 											var temp = "{{forloop.counter}}" - s;
-								  			var new_name = name + temp;
+								  			var new_name = name + temp ;
 
 								  			$('label[for="'+new_name+'"], input[id="'+new_name+'"]').css("display","none");
 								  			document.getElementById(new_name).style.display = 'none';

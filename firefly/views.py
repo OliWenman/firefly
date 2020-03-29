@@ -7,6 +7,7 @@ from django.utils.datastructures import MultiValueDictKeyError
 from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.utils import timezone
+from django.db.models import Q
 
 #Import seperate background_tasks, allows for processing to be done in background
 #and not risk a timeout requesting a page while processing.
@@ -20,6 +21,7 @@ from .forms import FireFlySettings_Form, SEDform, SEDfileform, Emissionlines_For
 
 #Import firefly
 from core_firefly import firefly_class
+from core_firefly.firefly_wrapper import firefly_run
 
 import numpy as np
 import random
@@ -29,8 +31,10 @@ import warnings
 from io import BytesIO
 import base64
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from astropy.io import fits
 import sys, traceback
+from .fits_table import Fits_Table
 
 time_in_database = 60*60
 clean_db = True
@@ -46,10 +50,12 @@ def clean_database(job_id):
 	except:
 		print("Failed to delete", job_submission.job_id)
 
+"""
 @background(name = 'firefly', queue = 'my-queue')
 def firefly_run(input_file, 
 				job_id,
 				ageMin,
+				ageMax,
 				ZMin,
 				ZMax,
 				flux_units,
@@ -73,6 +79,7 @@ def firefly_run(input_file,
 	firefly = firefly_class.Firefly()
 
 	firefly.settings(ageMin           = ageMin,
+					 ageMax			  = ageMax,
 					 ZMin             = ZMin,
 					 ZMax             = ZMax,
 					 flux_units       = flux_units,
@@ -120,12 +127,13 @@ def firefly_run(input_file,
 		job_submission.save()
 
 		clean_database(job_id)
-
+"""
 
 def home(request):
 
 	#Post method shows submitting form data
 	if request.method == 'POST':
+		print(request.POST)
 
 		#Get the form submitted and check it's valid for use
 		emissionlines_form  = Emissionlines_Form(request.POST)
@@ -161,7 +169,15 @@ def home(request):
 			file_destination.close()
 		
 			#Get the variables from the form.
+			ageMin, ageMax, ZMin, ZMax, flux_units = settings_form.check_values(ageMin     = request.POST['ageMin'],
+																				 ageMax     = request.POST['ageMax'],
+																				 ZMin       = request.POST['ZMin'],
+																				 ZMax       = request.POST['ZMax'],
+																				 flux_units = request.POST['flux_units'])
+
+			#print("ageMin =",ageMin, "ageMax =", ageMax, "ZMin =", ZMin, "ZMax = ", ZMax, "flux_units =", flux_units)
 			ageMin			 = float(request.POST['ageMin'])
+			#ageMax           = request.POST['ageMax']
 			ZMin             = float(request.POST['ZMin'])
 			ZMax             = float(request.POST['ZMax'])
 			flux_units       = float(request.POST['flux_units'])
@@ -200,6 +216,7 @@ def home(request):
 						job_id            = job_id,
 						#Model inputs
 						ageMin            = ageMin,
+						ageMax			  = ageMax,
 						ZMin              = ZMin,
 						ZMax              = ZMax,
 						flux_units        = flux_units,
@@ -245,10 +262,6 @@ def home(request):
 				 'ascii_additional_inputs': additional_inputs})
 
 
-
-from django.db.models import Q
-import matplotlib.gridspec as gridspec
-
 def processed(request, job_id):
 
 	#Find the the id in databse, if it can't then catch exception and
@@ -265,88 +278,97 @@ def processed(request, job_id):
 			return render(request, 'firefly/did_not_converge.html', {'job_id': job_id})
 
 		plot_size = (7, 5)
-		fig       = plt.figure(figsize = plot_size)
-
-		buffer = BytesIO()
-
+		
 		if job_submission.output_file.name and job_submission.status == "complete":
 
-			hdul        = fits.open(os.path.join(settings.MEDIA_ROOT, job_submission.output_file.name))
-			data        = hdul[1].data
-			wavelength  = data['wavelength']
-			flux        = data['original_data']
-			model       = data['firefly_model']
+			hdul = fits.open(job_submission.output_file.name)
 
-			csp_age=np.ndarray(hdul[1].header['ssp_number'])
-			csp_Z=np.ndarray(hdul[1].header['ssp_number'])
-			csp_light=np.ndarray(hdul[1].header['ssp_number'])
-			csp_mass=np.ndarray(hdul[1].header['ssp_number'])
-			
-			age         = str(np.around(10**hdul[1].header['age_lightW'],decimals=2))+' Gyr'
-			metallicity = str(np.around(hdul[1].header['metallicity_lightW'],decimals=2))+' dex'
-			mass        = str(np.around(hdul[1].header['stellar_mass'],decimals=2))
-			light       = str(np.around(hdul[1].header['EBV'],decimals=2))+' mag'
-			for i in range(len(csp_age)):
-				csp_age[i]=hdul[1].header['log_age_ssp_'+str(i)]
-				csp_Z[i]=hdul[1].header['metal_ssp_'+str(i)]
-				csp_light[i]=hdul[1].header['weightLight_ssp_'+str(i)]
-				csp_mass[i]=hdul[1].header['weightMass_ssp_'+str(i)]
+			n_spectra = len(hdul[1].data['wavelength'])
+
+			graphic_array = []	
+			for i in range(n_spectra):
+				
+				fig    = plt.figure(figsize = plot_size)
+				buffer = BytesIO()
+
+				data        = hdul[1].data
+				wavelength  = data['wavelength'][i]
+				flux        = data['original_data'][i]
+				model       = data['firefly_model'][i]
+
+				csp_age=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+				csp_Z=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+				csp_light=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+				csp_mass=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+				
+				age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))+' Gyr'
+				metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))+' dex'
+				mass        = str(np.around(hdul[1].data['stellar_mass'][i],decimals=2))
+				light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))+' mag'
+				for n in range(len(csp_age)):
+					csp_age[n]=hdul[1].data['log_age_ssp_'+str(n)][i]
+					csp_Z[n]=hdul[1].data['metal_ssp_'+str(n)][i]
+					csp_light[n]=hdul[1].data['weightLight_ssp_'+str(n)][i]
+					csp_mass[n]=hdul[1].data['weightMass_ssp_'+str(n)][i]
+
+
+				gridspec.GridSpec(2,2)
+				gridsize = (2,2)
+
+				#Mainplot
+				plt.subplot2grid(gridsize, (0,0), colspan = 2, rowspan = 1)
+				plt.xlabel('Wavelength (Å)')
+				plt.ylabel('Flux')
+				plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+				plt.plot(wavelength, flux, label = 'Original data')
+				plt.plot(wavelength, model, label = 'Fitted data')
+				plt.title('Output: '+ os.path.basename(job_submission.output_file.name) + '\n')
+				plt.xlim(left = wavelength[0])
+				plt.xlim(right = wavelength[-1])
+				plt.legend()
+				plt.grid()
+
+				#Small subplot 1
+				plt.subplot2grid(gridsize, (1,0))
+				plt.bar(10**(csp_age),
+						csp_light,
+						width=0.3,
+						align='center',
+						alpha=0.5)
+				plt.xlabel('Age')
+				plt.ylabel('frequency/Gyr')
+				#plt.title() 
+
+				#Small subplot 2
+				plt.subplot2grid(gridsize, (1,1))
+				plt.bar(csp_Z, 
+						csp_light, 
+						width=0.1, 
+						align='center', 
+						alpha=0.5)
+				plt.xlabel('Z')
+				plt.ylabel('frequency/Gyr')
+				#plt.title()
+
+				fig.tight_layout()
+
+				plt.savefig(buffer, format='png')
+				buffer.seek(0)
+				image_png = buffer.getvalue()
+				buffer.close()
+				plt.close()
+
+				graphic = base64.b64encode(image_png)
+				graphic = graphic.decode('utf-8')
+
+				graphic_array.append(graphic)	
 
 			hdul.close()
-
-			gridspec.GridSpec(2,2)
-			gridsize = (2,2)
-
-			#Mainplot
-			plt.subplot2grid(gridsize, (0,0), colspan = 2, rowspan = 1)
-			plt.xlabel('Wavelength (Å)')
-			plt.ylabel('Flux')
-			plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-			plt.plot(wavelength, flux, label = 'Original data')
-			plt.plot(wavelength, model, label = 'Fitted data')
-			plt.title('Output: '+ os.path.basename(job_submission.output_file.name) + '\n')
-			plt.xlim(left = wavelength[0])
-			plt.xlim(right = wavelength[-1])
-			plt.legend()
-			plt.grid()
-
-			#Small subplot 1
-			plt.subplot2grid(gridsize, (1,0))
-			plt.bar(10**(csp_age),
-					csp_light,
-					width=0.3,
-					align='center',
-					alpha=0.5)
-			plt.xlabel('Age')
-			plt.ylabel('frequency/Gyr')
-			#plt.title() 
-
-			#Small subplot 2
-			plt.subplot2grid(gridsize, (1,1))
-			plt.bar(csp_Z, 
-					csp_light, 
-					width=0.1, 
-					align='center', 
-					alpha=0.5)
-			plt.xlabel('Z')
-			plt.ylabel('frequency/Gyr')
-			#plt.title()
-
-			fig.tight_layout()
-
-			plt.savefig(buffer, format='png')
-			buffer.seek(0)
-			image_png = buffer.getvalue()
-			buffer.close()
-			plt.close()
-
-			graphic = base64.b64encode(image_png)
-			graphic = graphic.decode('utf-8')
 
 			return render(request, 
 						  'firefly/processed.html', 
 						 {'job_id': job_id, 
-						  'plot':graphic,
+						  'plot':graphic_array,
 						  'age': age,
 						  'metallicity': metallicity,
 						  'mass': mass,
@@ -361,31 +383,56 @@ def processed(request, job_id):
 				lamb = data[0,:]
 
 				wavelength = data[0,:]
-				flux = data[1,:]
+				flux       = data[1,:]
+				spectra    = os.path.basename(job_submission.input_file.name)
+				n_spectra  = 1
 			else:
+
 				hdul = fits.open(job_submission.input_file.name)
-				data = hdul[1].data
-				wavelength = 10**data['loglam']
-				flux = data['flux']
+
+				n_spectra = len(hdul[1].data['flux'])
+
+				flux_array       = hdul[1].data['flux']
+				wavelength_array = 10**hdul[1].data['loglam']
+				spectra_array    = hdul[1].data['spectra']
 				hdul.close()
 
-			plt.plot(wavelength, flux, label = 'Original data')
-			plt.title('Input: ' + os.path.basename(job_submission.input_file.name))
-			plt.xlim(left = wavelength[0])
-			plt.xlim(right = wavelength[-1])
-			plt.legend()
-			plt.grid()
-			plt.xlabel('Wavelength (Å)')
-			plt.ylabel('Flux')
+			graphic_array = []
+			for i in range(n_spectra):
 
-			plt.savefig(buffer, format='png')
-			buffer.seek(0)
-			image_png = buffer.getvalue()
-			buffer.close()
-			plt.close()
+				buffer = BytesIO()
 
-			graphic = base64.b64encode(image_png)
-			graphic = graphic.decode('utf-8')
+				fig = plt.figure(figsize = plot_size)
+
+				if file_extension == ".fits":
+					left  = wavelength_array[i][0]
+					right = wavelength_array[i][-1]
+					wavelength = wavelength_array[i]
+					flux = flux_array[i]
+					spectra = spectra_array[i]
+				else:
+					left  = wavelength[0]
+					right = wavelength[-1]
+
+				plt.plot(wavelength, flux, label = 'Original data')
+				plt.title(spectra)
+
+				plt.xlim(left = left, right = right)
+				plt.legend()
+				plt.grid()
+				plt.xlabel('Wavelength (Å)')
+				plt.ylabel('Flux')
+
+				plt.savefig(buffer, format='png')
+				buffer.seek(0)
+				image_png = buffer.getvalue()
+				buffer.close()
+				plt.close()
+
+				graphic = base64.b64encode(image_png)
+				graphic = graphic.decode('utf-8')
+				graphic_array.append(graphic)				
+			
 
 			#Find where the user is in the queue
 			running_tasks_qs = Task.objects.filter(task_name = 'firefly')
@@ -407,7 +454,7 @@ def processed(request, job_id):
 			return render(request, 
 						  'firefly/processing.html', 
 						  {'job_id': job_id, 
-						  'plot'   : graphic,
+						  'plot'   : graphic_array,
 						  'queue'  : queue})
 	else:
 		return render(request, 'firefly/not_found.html', {'job_id': job_id})
@@ -453,3 +500,30 @@ if found == False:
 			print("found error for job_id", bool(completed_task.last_error))
 			break
 """
+
+def fits_format(request):
+
+	HDUL1 = [ "XTENSION= 'BINTABLE'           / binary table extension",
+			  "BITPIX  =                    8 / array data type",                                
+			  "NAXIS   =                    2 / number of array dimensions",
+			  "NAXIS1  =                   32 / length of dimension 1",                          
+			  "NAXIS2  =                 3818 / length of dimension 2",
+			  "PCOUNT  =                    0 / number of group parameters",                     
+			  "GCOUNT  =                    1 / number of groups",                               
+			  "TFIELDS =                    8 / number of table fields",                         
+			  "TTYPE1  = flux    " ,                                                           
+			  "TFORM1  = E       ",                                                            
+			  "TTYPE2  = loglam  ",                                                            
+			  "TFORM2  = E       ",                                                            
+			  "TTYPE3  = ivar    ",                                                            
+			  "TFORM3  = E       ",
+			  "END   "
+	]
+
+	HDUL2 = [ "Z = /The redshift value",
+			  ""
+
+	]
+
+
+	return render(request, 'firefly/fits_format.html', {'HDUL1': HDUL1})

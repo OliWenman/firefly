@@ -1,11 +1,14 @@
 from django import forms
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 from .models import SED
 
+import time
 import numpy as np
 import os
 from astropy.io import fits
+from .fits_table import Fits_Table
 
 class SEDform(forms.ModelForm):
 	class Meta:
@@ -51,27 +54,59 @@ class SEDfileform(forms.Form):
 				np.loadtxt(value, unpack=True)
 			except(ValueError):
 				raise ValidationError(u'File is corrupted!')
-		"""
+		
 		elif ext == '.fits':
+
+			sed_file_path = os.path.join(settings.MEDIA_ROOT, value.name)
+
+			with open(sed_file_path, 'wb+') as destination:
+				for chunk in value.chunks():
+					destination.write(chunk)
+			hdul = fits.open(sed_file_path)
+			
+			"""
 			try:
-				hdul = fits.open(input_file)
-				data_set0 = hdul[0].data
-				data_set1 = hdul[1].data
-				data_set2 = hdul[2].data
+				
+				hdul[0].header['RA']
+				hdul[0].header['DEC']
 
-				#Variables from fits file?
-				redshift = float(data_set2['Z'])
-				ra       = float(data_set2['PLUG_RA'])  #Not consistant, RA or PLUG_RA?
-				dec      = float(data_set2['PLUG_DEC']) #Not consistant, DEC or PLUG_DEC?
-				vdisp    = float(data_set2['VDISP'])
+				hdul[1].data['loglam']
+				hdul[1].data['flux']
+				hdul[1].data['ivar']
+				hdul[2].data['Z'][0] 
+				hdul[2].data['VDISP'][0]
 
-				lamb            = 10**data_set1['loglam']
-				wavelength = lamb[np.where(lamb > 3600 * (1 + self.redshift))]
-				flux       = data_set1['flux'][np.where(lamb > 3600 * (1 + self.redshift))]
-				error      = data_set1['ivar'] #??
-			except:
+				hdul.close()
+				os.remove(sed_file_path)
+
+			except(IndexError):
+				hdul.close()
+				#time.sleep(0.01)
+				os.remove(sed_file_path)
 				raise ValidationError(u'Fits file not correct format!')
-		"""
+			"""
+
+			try:
+				
+				hdul[1].data['spectra']
+				hdul[1].data['flux']
+				hdul[1].data['loglam']
+				hdul[1].data['ivar']
+
+				hdul[1].data['Z']
+				hdul[1].data['vdisp']
+				hdul[1].data['ra']
+				hdul[1].data['dec']
+
+				hdul.close()
+				os.remove(sed_file_path)
+
+			except:
+				hdul.close()
+				#time.sleep(0.01)
+				os.remove(sed_file_path)
+				raise ValidationError(u'Fits file not correct format!')
+
 	input_file = forms.FileField(required = True, 
 								 widget=forms.FileInput(attrs={'accept' : ('.ascii','.fits',)}), 
 								 validators = [validate_file_okay])
@@ -103,7 +138,8 @@ class FireFlySettings_Form(forms.Form):
 	ageMax           = forms.DecimalField(label     = "Maximum age", 
 										  min_value = 0, 
 										  required  = False, 
-										  widget    = forms.TextInput({ "placeholder": "Default"}))
+										  widget    = forms.TextInput({ "placeholder": "Default"}),
+										  help_text = "If left blank, Firefly will calculate a value based on the redshift using the astropy library.")
 	
 	ZMin             = forms.DecimalField(initial   = 0.0001, 
 										  min_value = 0,
@@ -122,13 +158,14 @@ class FireFlySettings_Form(forms.Form):
 										  initial   = 10, 
 										  min_value = 0., 
 										  max_value = 100.)
-
+	
+	model_key        = forms.CharField(widget = forms.Select(choices = model_key_choices),
+									   help_text = "m11: Maraston and Stromback 2011, m09: Maraston et al. 2009, bc03: Bruzual and Charlot 2003")
+	
 	model_libs       = forms.CharField(label = "Model library", 
 									   widget = forms.Select(choices = model_libs_choices), 
-									   help_text = "The model flavour")
-	
-	model_key        = forms.CharField(widget = forms.Select(choices = model_key_choices))
-	
+									   help_text = "Only necessary if using m11. All are empirical libraries except for MARCS which is a theoretical library.")
+
 	imfs             = forms.CharField(label = "IMF", 
 									   widget = forms.Select(choices = imf_choices), 
 									   help_text = "Initial mass function model")
@@ -141,25 +178,45 @@ class FireFlySettings_Form(forms.Form):
 										  required = False, 
 										  help_text = "Specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion")
 
+	def check_values(self,
+					 ageMin,
+					 ageMax,
+					 ZMin,
+					 ZMax,
+					 flux_units):
+
+		if ageMin == '':
+			ageMin = 0
+		if ageMax == '':
+			ageMax = None
+		if ZMin == '':
+			ZMin = 0.0001
+		if ZMax == '':
+			ZMax = 10
+		if flux_units == '':
+			flux_units = 1
+		
+		return ageMin, ageMax, ZMin, ZMax, flux_units
 
 emissionline_choices = [(None, '-') ,
-						('HeII','He II'), 
-					    ('NeV','Ne V'),
-					    ('OII', 'O II'),
-					    ('NeIII', 'Ne III'),
-					    ('H5', 'H5'),
-					    ('He', 'He'),
-					    ('Hd', 'Hd'),
-					    ('Hg', 'Hg'),
-					    ('OIII', 'O III'),
-					    ('ArIV', 'Ar IV'),
-					    ('Hb', 'Hb'),
-					    ('HI', 'H I'),
-					    ('HeI', 'He I'),
-					    ('OI', 'O I'),
-					    ('NII', 'N II'),
-					    ('SII', 'S II'),
-					    ('ArIII', 'Ar III')]
+						('HeII', 'He-II:  3202.15A, 4685.74 [Å]'), 
+					    ('NeV',  'Ne-V:   3345.81, 3425.81 [Å]'),
+					    ('OII',  'O-II:   3726.03, 3728.73 [Å]'),
+					    ('NeIII','Ne-III: 3868.69, 3967.40 [Å]'),
+					    ('H5',   'H-ζ:     3889.05 [Å]'),
+					    ('He',   'H-ε:     3970.07 [Å]'),
+					    ('Hd',   'H-δ:     4101.73 [Å]'),
+					    ('Hg',   'H-γ:     4340.46 [Å]'),
+					    ('OIII', 'O-III:  4363.15, 4958.83, 5006.77 [Å]'),
+					    ('ArIV', 'Ar-IV:  4711.30, 4740.10 [Å]'),
+					    ('Hb',   'H-β:     4861.32 [Å]'),
+					    ('HI',   'H-I:    5197.90, 5200.39 [Å]'),
+					    ('HeI',  'He-I:   5875.60 [Å]'),
+					    ('OI',   'O-I:    6300.20, 6363.67 [Å]'),
+					    ('Ha',   'H-α:     6562.80 [Å]'),
+					    ('NII',  'N-II:   6547.96, 6583.34 [Å]'),
+					    ('SII',  'S-II:   6716.31, 6730.68 [Å]'),
+					    ('ArIII','Ar-III: 7135.67 [Å]')]
 
 class Emissionlines_Form(forms.Form):
 	
@@ -168,7 +225,7 @@ class Emissionlines_Form(forms.Form):
 										   max_value = 10)
 
 	N_angstrom_masked = forms.IntegerField(initial = 20,
-										   label = "Width of masking (Å)",
+										   label = "Width of masking [Å]",
 										   widget=forms.TextInput(attrs={'size': '3'}))
 
 	def __init__(self, *args, **kwargs):
@@ -181,12 +238,13 @@ class Emissionlines_Form(forms.Form):
 			# generate extra fields in the number specified via extra_fields
 			self.fields['Emission_line_{index}'.format(index=index+1)] = forms.CharField(required=False, 
 																						 widget = forms.Select(choices = emissionline_choices),
-																						 initial = '')
+																						 initial = '',
+																						 max_length=100)
 
 class ASCCI_additional_inputs(forms.Form):
 
 	redshift     = forms.DecimalField(label = 'Redshift', required = False)
-	ra           = forms.DecimalField(label = 'Right ascension', required = False)
-	dec          = forms.DecimalField(label = 'dec', required = False)
-	vdisp        = forms.DecimalField(label = 'Velocity dispersion', required = False) 
-	r_instrument = forms.IntegerField(label = 'Instrument resolution', min_value = 1, required = False)
+	ra           = forms.DecimalField(label = 'Right ascension [degrees]', required = False)
+	dec          = forms.DecimalField(label = 'Declination [degrees]', required = False)
+	vdisp        = forms.DecimalField(label = 'Velocity dispersion [km/s]', required = False) 
+	r_instrument = forms.IntegerField(label = 'Instrument resolution', min_value = 1, required = False, help_text = "Resolution of the instrument at each wavelength observed")

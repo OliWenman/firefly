@@ -60,6 +60,95 @@ class firefly_setup:
         self.hpf_mode = hpf_mode
         self.N_angstrom_masked = N_angstrom_masked
 
+    def openWebsiteData(self,
+                        lines_mask,
+                        n_spectrum   = 0,
+                        ra           = None,
+                        dec          = None,
+                        vdips        = None,
+                        redshift     = None,
+                        r_instrument = None):
+        """
+        It reads an SDSS spectrum and provides the input for the firefly fitting routine.
+
+        In this aims, it stores the following data in the object :
+        * hdu list from the spec lite
+        * SED data : wavelength (in angstrom), flux, error on the flux (in 10^{-17} erg/cm2/s/Angstrom, like the SDSS spectra)
+        * Metadata :
+            * ra : in degrees J2000
+            * dec : in degrees J2000
+            * redshift : best fit
+            * vdisp : velocity dispersion in km/s
+            * r_instrument : resolution of the instrument at each wavelength observed
+            * trust_flag : 1 or True if trusted 
+            * bad_flags : ones as long as the wavelength array, filters the pixels with bad data
+            * objid : object id optional : set to 0
+        """
+        maskLambda = np.loadtxt(os.path.join(os.environ['FF_DIR'],'data',"dr12-sky-mask.txt"), unpack=True)
+
+        file_extension = os.path.splitext(self.path_to_spectrum)[1]
+
+        if file_extension == ".fits":
+
+            hdulist       = pyfits.open(self.path_to_spectrum)
+            self.ra       = hdulist[1].data['RA'][n_spectrum]
+            self.dec      = hdulist[1].data['DEC'][n_spectrum]
+            self.redshift = hdulist[1].data['Z'][n_spectrum] 
+            self.vdisp    = hdulist[1].data['VDISP'][n_spectrum]
+
+            self.wavelength = 10**hdulist[1].data['loglam'][n_spectrum]
+            self.flux       = hdulist[1].data['flux'][n_spectrum]
+            self.error      = hdulist[1].data['ivar'][n_spectrum]**(-0.5)
+
+        elif file_extension == ".ascii":
+            self.ra       = ra
+            self.dec      = dec
+            self.redshift = redshift
+            self.vdisp    = vdisp
+
+            self.wavelength = 10**hdulist[1].data['loglam'][n_spectrum]
+            self.flux       = hdulist[1].data['flux'][n_spectrum]
+            self.error      = hdulist[1].data['ivar'][n_spectrum]**(-0.5)
+
+        
+        self.restframe_wavelength = self.wavelength / (1.0+self.redshift)
+        self.bad_flags = np.ones(len(self.wavelength))
+        self.trust_flag = 1
+        self.objid = 0
+
+        ratio = np.min(abs(10000.*np.log10(np.outer(self.wavelength, 1./maskLambda))), axis=1)
+        margin = 1.5
+        vet_mask = ratio <= margin
+
+        # masking emission lines
+        if lines_mask is None:
+            lines_mask = ((self.restframe_wavelength > 3728 - self.N_angstrom_masked) & (self.restframe_wavelength < 3728 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 5007 - self.N_angstrom_masked) & (self.restframe_wavelength < 5007 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 4861 - self.N_angstrom_masked) & (self.restframe_wavelength < 4861 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 6564 - self.N_angstrom_masked) & (self.restframe_wavelength < 6564 + self.N_angstrom_masked))
+
+        self.restframe_wavelength = self.restframe_wavelength[(lines_mask==False)&(vet_mask==False)] 
+        self.wavelength = self.wavelength[(lines_mask==False)&(vet_mask==False)] 
+        self.flux = self.flux[(lines_mask==False)&(vet_mask==False)] 
+        self.error = self.error[(lines_mask==False)&(vet_mask==False)] 
+        self.bad_flags = self.bad_flags[(lines_mask==False)&(vet_mask==False)]         
+        
+        bad_data = np.isnan(self.flux) | np.isinf(self.flux) | (self.flux <= 0.0) | np.isnan(self.error) | np.isinf(self.error)
+        # removes the bad data from the spectrum 
+        self.flux[bad_data]     = 0.0
+        self.error[bad_data]     = np.max(self.flux) * 99999999999.9
+        self.bad_flags[bad_data] = 0
+
+        f_blue = lambda lll : (2270.0-1560.0)/(6000.0-3700.0)*lll + 420.0 
+        f_red  = lambda lll : (2650.0-1850.0)/(9000.0-6000.0)*lll + 250.0  
+        self.r_instrument = np.zeros(len(self.wavelength))
+        self.r_instrument[(self.wavelength<6000.)] = f_blue(self.wavelength[(self.wavelength<6000.)])
+        self.r_instrument[(self.wavelength>=6000.)] = f_red(self.wavelength[(self.wavelength>=6000.)])        
+
+        if self.milky_way_reddening :
+            # gets the amount of MW reddening on the models
+            self.ebv_mw = get_dust_radec(self.ra,self.dec,'ebv')
+        else:
+            self.ebv_mw = 0.0
+
+
     def openSingleSpectrum(self, wavelength, flux, error, redshift, ra, dec, vdisp, lines_mask, r_instrument):
         
         self.wavelength=wavelength
@@ -97,7 +186,9 @@ class firefly_setup:
             self.ebv_mw = 0.0
 
 
-    def openSDSSSpectrum(self, survey):
+    def openSDSSSpectrum(self, 
+                         survey,
+                         lines_mask = None):
         """
         It reads an SDSS spectrum and provides the input for the firefly fitting routine.
 
@@ -141,12 +232,9 @@ class firefly_setup:
         margin = 1.5
         vet_mask = ratio <= margin
 
-        testing = False
         # masking emission lines
-        if testing:
-            lines_mask = ((self.restframe_wavelength > 3728 - self.N_angstrom_masked) & (self.restframe_wavelength < 3728 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 5007 - self.N_angstrom_masked) & (self.restframe_wavelength < 5007 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 4861 - self.N_angstrom_masked) & (self.restframe_wavelength < 4861 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 6564 - self.N_angstrom_masked) & (self.restframe_wavelength < 6564 + self.N_angstrom_masked)) | (self.restframe_wavelength<3900) | (self.restframe_wavelength>6800)
-        else:
-            lines_mask = ((self.restframe_wavelength > 3728 - self.N_angstrom_masked) & (self.restframe_wavelength < 3728 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 5007 - self.N_angstrom_masked) & (self.restframe_wavelength < 5007 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 4861 - self.N_angstrom_masked) & (self.restframe_wavelength < 4861 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 6564 - self.N_angstrom_masked) & (self.restframe_wavelength < 6564 + self.N_angstrom_masked)) 
+        if lines_mask is None:
+            lines_mask = ((self.restframe_wavelength > 3728 - self.N_angstrom_masked) & (self.restframe_wavelength < 3728 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 5007 - self.N_angstrom_masked) & (self.restframe_wavelength < 5007 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 4861 - self.N_angstrom_masked) & (self.restframe_wavelength < 4861 + self.N_angstrom_masked)) | ((self.restframe_wavelength > 6564 - self.N_angstrom_masked) & (self.restframe_wavelength < 6564 + self.N_angstrom_masked))
 
         self.restframe_wavelength = self.restframe_wavelength[(lines_mask==False)&(vet_mask==False)] 
         self.wavelength = self.wavelength[(lines_mask==False)&(vet_mask==False)] 

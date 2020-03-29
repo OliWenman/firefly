@@ -5,15 +5,24 @@ import numpy as np
 import os
 
 cur_path = os.getcwd()
-file_path = os.path.join("example_data", "spectra", "NGC7099_2016-10-01.fits")#'example_data', 'spectra', '1045','spec-1045-52725-0628.fits')
-fits.info(file_path)
-"""
+#File_path = os.path.join("example_data", "spectra", "testing", "mastar-goodspec-bestlsf-v2_7_1-trunk.fits")#'example_data', 'spectra', '1045','spec-1045-52725-0628.fits'
+file_path = os.path.join('example_data', 'spectra', '0266','spec-0266-51630-0623.fits')
+
 hdul = fits.open(file_path)
 data_set0 = hdul[0].data
 data_set1 = hdul[1].data
-data_set2 = hdul[2].data
+cols1 = hdul[1].columns
+cols2 = hdul[2].columns
+cols3 = hdul[3].columns
+#print(cols1)
+#print(cols2)
+#print(cols3)
 
-#=====================================================================================
+data_set2 = hdul[1].header
+print(data_set2)
+#hdul.info()
+"""
+#====================================================================================
 #Section 1 - automatic from fits file?
 
 #Variables from fits file?

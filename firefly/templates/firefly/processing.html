@@ -17,8 +17,11 @@
 
 		<link rel="stylesheet" type="text/css" href = "/static/firefly/load_message.css" />
 
-		<img align="left" src="data:image/png;base64,{{ plot|safe }}">
-
+		{% for myplot in plot %}
+			<div>
+				<img src="data:image/png;base64,{{ myplot|safe }}" style="display: block;">
+			</div>
+		{% endfor %}
 	</body>
 
 {% endblock %}

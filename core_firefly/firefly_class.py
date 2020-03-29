@@ -48,47 +48,27 @@ class Firefly():
 		os.environ[var] = path
 
 
-	def model_input(self):
+	def model_input(self,
+					redshift,
+					ra,
+					dec,
+					vdisp,
+					r_instrument):
 
-		self.redshift = 1.33
+		self.redshift = redshift#1.33
 
 		# RA and DEC
-		self.ra=53.048
-		self.dec=-27.72
+		self.ra  = ra#53.048
+		self.dec = dec#-27.72
 
 		#velocity dispersion in km/s
-		self.vdisp = 220.
-
-
-	def file_input(self, input_file:str):
-
-		#input file with path to read in wavelength, flux and flux error arrays
-		#the example is for an ascii file with extension 'ascii'
-		self.input_file = input_file
-		self.data = np.loadtxt(self.input_file, unpack=True)
-		self.lamb = self.data[0,:]
-
-		try:
-			self.wavelength = self.data[0,:][np.where(self.lamb>3600*(1+self.redshift))]
-			self.flux = self.data[1,:][np.where(self.lamb>3600*(1+self.redshift))]
-			self.error = self.flux*0.1
-			self.restframe_wavelength = self.wavelength/(1+self.redshift)
-
-			#instrumental resolution
-			self.r_instrument = np.zeros(len(self.wavelength))
-
-			for wi, w in enumerate(self.wavelength):
-				self.r_instrument[wi] = 600
-
-		except AttributeError: 
-			_, ex, traceback = sys.exc_info()
-			message = "FIREFLY ERROR - Call the model_input() function first to gain a redshift value."
-
-			raise AttributeError(message)
+		self.vdisp = vdisp#220.
+		self.r_instrument_value = r_instrument
 
 	def settings(self,
 				 models_key,
 				 ageMin,
+				 ageMax,
 				 ZMin,
 				 ZMax,
 				 model_libs,
@@ -114,6 +94,7 @@ class Firefly():
 		#key which models and minimum age and metallicity of models to be used 
 		self.models_key = models_key #'m11'
 		self.ageMin     = ageMin #0.
+		self.ageMax     = ageMax
 		self.ZMin       = ZMin #0.001 
 		self.ZMax       = ZMax #10.
 
@@ -143,7 +124,7 @@ class Firefly():
 		self.N_angstrom_masked = N_angstrom_masked
 
 		#Dictionary of corrosponding elements to their emission lines
-		emission_dict = {'HeII' : 3202.15,
+		emission_dict = {'HeII' : (3202.15, 4685.74),
 						 'NeV'  : (3345.81, 3425.81),
 						 'OII'  : (3726.03, 3728.73),
 						 'NeIII': (3868.69, 3967.40),
@@ -152,7 +133,6 @@ class Firefly():
 						 'Hd'   : 4101.73,
 						 'Hg'   : 4340.46,
 						 'OIII' : (4363.15, 4958.83, 5006.77),
-						 'HeII' : 4685.74,
 						 'ArIV' : (4711.30, 4740.10),
 						 'Hb'   : 4861.32,
 						 'NI'   : (5197.90, 5200.39),
@@ -211,9 +191,10 @@ class Firefly():
 
 	def run(self, 
 			input_file, 
-			outputFolder,
+			output_file,
 			emissionline_list,
-			N_angstrom_masked):
+			N_angstrom_masked,
+			n_spectrum):
 
 		#set output folder and output filename in firefly directory 
 		#and write output file
@@ -231,64 +212,46 @@ class Firefly():
 			self.wavelength = data[0,:][np.where(lamb>3600*(1+self.redshift))]
 			self.flux = data[1,:][np.where(lamb>3600*(1+self.redshift))]
 			self.error = self.flux*0.1
-			self.restframe_wavelength = self.wavelength/(1+self.redshift)
+			#self.restframe_wavelength = self.wavelength/(1+self.redshift)
 
 			#instrumental resolution
 			self.r_instrument = np.zeros(len(self.wavelength))
 
 			for wi, w in enumerate(self.wavelength):
-				self.r_instrument[wi] = 600
+				self.r_instrument[wi] = self.r_instrument_value
 
 		else:
-
 			hdul = fits.open(input_file)
-			data_set0 = hdul[0].data
-			data_set1 = hdul[1].data
-			data_set2 = hdul[2].data
 
-			#Variables from fits file?
-			self.redshift = float(data_set2['Z'])
-			self.ra       = float(data_set2['PLUG_RA'])  #Not consistant, RA or PLUG_RA?
-			self.dec      = float(data_set2['PLUG_DEC']) #Not consistant, DEC or PLUG_DEC?
-			self.vdisp    = float(data_set2['VDISP'])
+			self.flux       = hdul[1].data['flux'][n_spectrum]
+			self.wavelength = 10**hdul[1].data['loglam'][n_spectrum]
+			self.ivar       = hdul[1].data['ivar'][n_spectrum]
 
-			lamb            = 10**data_set1['loglam']
-			self.wavelength = lamb[np.where(lamb > 3600 * (1 + self.redshift))]
-			self.flux       = data_set1['flux'][np.where(lamb > 3600 * (1 + self.redshift))]
-			self.error      = data_set1['ivar'] 
-			self.restframe_wavelength = self.wavelength/(1+self.redshift)
-			self.r_instrument = np.zeros(len(self.wavelength))
-			for wi, w in enumerate(self.wavelength):
-				self.r_instrument[wi] = 600 #1800#Where is the resolution in the file? Optional input?
+			self.redshift = hdul[1].data['Z'][n_spectrum]
+			self.vdisp    = hdul[1].data['vdisp'][n_spectrum]
+			self.ra       = hdul[1].data['ra'][n_spectrum]
+			self.dec      = hdul[1].data['dec'][n_spectrum]
+
 			hdul.close()
 
-		self.ageMax = self.cosmo.age(self.redshift).value
+		if self.ageMax is None:
+			self.ageMax = self.cosmo.age(self.redshift).value
 
+		self.restframe_wavelength = self.wavelength / (1.0+self.redshift)
 		self.mask_emissionlines(element_emission_lines = emissionline_list,
 								N_angstrom_masked = N_angstrom_masked)
 
 		t0 = time.time()
 
+		"""
 		if file_extension == ".ascii":
 			n = -6
 		elif file_extension == ".fits":
 			n = -5	
 
 		output_file = join( outputFolder , 'spFly-' + os.path.basename( self.input_file )[0:n] ) + ".fits"
+		"""
 
-		if os.path.isfile(output_file) and self.override_results == False:
-			print()
-			print('Warning: This object has already been processed, the file will be over-witten.')
-			answer = input('** Do you want to continue? (Y/N)')    
-			if (answer=='N' or answer=='n'):
-				#sys.exit()
-				return
-			if os.name != 'nt':
-				subprocess.call(['/bin/rm','-r',output_file])
-			else:
-				os.remove(output_file)
-		if os.path.isdir(outputFolder)==False:
-			os.mkdir(outputFolder)
 		print()
 		print( 'Output file: ', output_file                 )
 		print()
@@ -301,7 +264,7 @@ class Firefly():
 		prihdr['ZMIN']	    = str(self.ZMin)
 		prihdr['ZMAX']	    = str(self.ZMax)
 		prihdr['redshift']	= self.redshift
-		prihdr['HIERARCH age_universe']	= np.round(self.cosmo.age(self.redshift).value,3)
+		prihdr['HIERARCH age_universe']	= np.round(self.ageMax, 3)
 		prihdu = spm.pyfits.PrimaryHDU(header=prihdr)
 		tables = [prihdu]
 
@@ -309,6 +272,7 @@ class Firefly():
 		spec=setup.firefly_setup(path_to_spectrum  = self.input_file, 
 								 N_angstrom_masked = self. N_angstrom_masked)
 		
+		"""
 		if file_extension == ".ascii":
 			spec.openSingleSpectrum(self.wavelength, 
 									self.flux, 
@@ -320,8 +284,11 @@ class Firefly():
 									self.lines_mask, 
 									self.r_instrument)
 		else:
-			spec.openSDSSSpectrum("sdssMain")
-
+			spec.openSDSSSpectrum("sdssMain",
+								  self.lines_mask)
+		"""
+		spec.openWebsiteData(lines_mask = self.lines_mask,
+							 n_spectrum = n_spectrum)
 		#spec.openMANGASpectrum(data_release, path_to_logcube, path_to_drpall, bin_number, plate_number, ifu_number)
 
 		self.did_not_converge = 0.

@@ -671,13 +671,8 @@ class StellarPopulationModel:
 			self.tbhdu = tbhdu
 	
 			prihdr = pyfits.Header()
-			#Needed as Django passes file in memory, to get the name of the file simply
-			#Use path_to_spectrum.name instead
-			try:
-				prihdr['file'] = self.specObs.path_to_spectrum
-			except(ValueError):
-				prihdr['file'] = self.specObs.path_to_spectrum.name
-					
+
+			prihdr['file'] = self.specObs.path_to_spectrum		
 			prihdr['model'] = self.models
 			prihdr['ageMin'] = self.age_limits[0]
 			prihdr['ageMax'] = self.age_limits[1]

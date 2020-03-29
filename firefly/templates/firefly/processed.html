@@ -34,24 +34,35 @@
     </div>
   </section>
 
+  <style type="text/css">
+    th, td {
+      border-bottom: 1px solid #ddd;
+      border-top: 1px solid #ddd;
+    }
+  </style>
+  <br>
+  <table>
+      <tr style="size: 5; text-align: center;">
+        <th>Spectra</th>
+        <th>Calculated values</th>
+      </tr>
+      {% for myplot in plot %}
+      <tr>
+        <td>
+          <img src="data:image/png;base64,{{ myplot|safe }}" >
+        </td>
 
+        <td>
+          <ul><font size="5" style="line-height: 2.5; vertical-align: text-top;">
+            <li>\$  \left[ Z \over H \right] \$: {{metallicity}} </li>
+            <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{mass}} </li>
+            <li><i> Age </i>: {{age}} </li>
+            <li>\$ E(B-V) \$: {{light}}</li>
+          </ul></font>
+        </td>
 
-  <div class = "row">
-
-    <div class = "column">
-      <img src="data:image/png;base64,{{ plot|safe }}">
-    </div>
-
-    <div class = "column">
-      <br>
-      <br>
-      <b>Firefly calculated the following based on the model used on your dataset.</b>
-      <ul ><font size="4" style="line-height: 2.5; ">
-        <li>\$  \left[ Z \over H \right] \$: {{metallicity}} </li>
-        <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{mass}} </li>
-        <li><i> Age </i>: {{age}} </li>
-        <li>\$ E(B-V) \$: {{light}}</li>
-      </ul></font>
-    </div>
-  </div>
+      </tr>
+      {% endfor %}
+      
+  </table>
 {% endblock %}

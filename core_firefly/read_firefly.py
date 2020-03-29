@@ -6,7 +6,7 @@ import sys
 import os
 
 cur_path = os.getcwd()
-file_path = os.path.join(cur_path, "..", "media", "spFly-Example_CDFS022490_55300102132524.fits")
+file_path = os.path.join("/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/media", "temp0_testtable_21328304287020.fits")
 
 hdul = fits.open(file_path)
 data=hdul[1].data
@@ -55,3 +55,5 @@ py.ylabel('frequency/Gyr')
 py.bar(csp_Z,csp_light,width=0.1,align='center',alpha=0.5)
 py.scatter(csp_Z,csp_light)
 py.show()
+
+print(list(hdul[1].header.keys()))
