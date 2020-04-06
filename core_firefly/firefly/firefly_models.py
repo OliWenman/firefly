@@ -94,7 +94,31 @@ class StellarPopulationModel:
 		 #. Finally, it writes the output files
 
 	"""
-	def __init__(self, specObs, outputFile, cosmo, models = 'm11', model_libs = ['MILES_UVextended'], imfs = ['ss','kr'], hpf_mode = 'on', age_limits = [6,10.1], downgrade_models = True, dust_law = 'calzetti', max_ebv = 1.5, num_dust_vals = 200, dust_smoothing_length = 200, max_iterations = 10, fit_per_iteration_cap = 1000, pdf_sampling = 300, data_wave_medium = 'vacuum', Z_limits = [0.001,10], wave_limits = [0,99999990], suffix = "",use_downgraded_models = False, write_results=True, flux_units=10**(-17)):
+	def __init__(self, 
+				 specObs, 
+				 outputFile, 
+				 cosmo, 
+				 models = 'm11', 
+				 model_libs = ['MILES_UVextended'], 
+				 imfs = ['ss','kr'], 
+				 hpf_mode = 'on', 
+				 age_limits = [6,10.1], 
+				 downgrade_models = True, 
+				 dust_law = 'calzetti', 
+				 max_ebv = 1.5, 
+				 num_dust_vals = 200, 
+				 dust_smoothing_length = 200, 
+				 max_iterations = 10, 
+				 fit_per_iteration_cap = 1000, 
+				 pdf_sampling = 300, 
+				 data_wave_medium = 'vacuum', 
+				 Z_limits = [0.001,10], 
+				 wave_limits = [0,99999990], 
+				 suffix = "",
+				 use_downgraded_models = False, 
+				 write_results=True, 
+				 flux_units=10**(-17)):
+
 		self.cosmo = cosmo
 		self.specObs = specObs
 		self.outputFile = outputFile
@@ -366,6 +390,9 @@ class StellarPopulationModel:
 
 			# print "Retrieved all models!"
 			self.model_wavelength, self.model_flux, self.age_model, self.metal_model = wavelength, model_flux, age_model, metal_model
+			print(self.model_wavelength)
+			print(min(self.model_wavelength))
+			print(mac(self.model_wavelength))
 			return wavelength, model_flux, age_model, metal_model
 
 	def fit_models_to_data(self):
@@ -692,21 +719,26 @@ class StellarPopulationModel:
 				return 0.
 
 
-	def create_dummy_hdu(self):
+	def create_dummy_hdu(self,
+						 wavelength = None,
+						 flux       = None):
 		"""
 		creates an empty HDU table in case computation did not converge
 		"""
 		default_array = np.array([default_value,default_value])
-		waveCol = pyfits.Column(name="wavelength",format="D", unit="Angstrom", array= default_array)
-		#dataCol = pyfits.Column(name="original_data",format="D", unit="1e-17erg/s/cm2/Angstrom", array= default_array)
-		#errorCol = pyfits.Column(name="flux_error",format="D", unit="1e-17erg/s/cm2/Angstrom", array= default_array)
+		wavelength = self.specObs.wavelength
+		flux       = self.specObs.flux
+		
+		waveCol = pyfits.Column(name="wavelength",format="D", unit="Angstrom", array= wavelength)
+		dataCol = pyfits.Column(name="original_data",format="D", unit="1e-17erg/s/cm2/Angstrom", array= flux)
+		errorCol = pyfits.Column(name="flux_error",format="D", unit="1e-17erg/s/cm2/Angstrom", array= default_array)
 		best_fitCol = pyfits.Column(name="firefly_model",format="D", unit="1e-17erg/s/cm2/Angstrom", array= default_array)
 		best_fitCol_um = pyfits.Column(name="firefly_model_unmasked",format="D", unit="1e-17erg/s/cm2/Angstrom", array= default_array)
-		cols = pyfits.ColDefs([ waveCol, best_fitCol, best_fitCol_um]) # dataCol, errorCol, 
+		cols = pyfits.ColDefs([ waveCol, best_fitCol, best_fitCol_um, dataCol, errorCol]) 
 		tbhdu = pyfits.BinTableHDU.from_columns(cols)
 
 		tbhdu.header['IMF'] = dict_imfs[self.imfs[0]]
-		tbhdu.header['library'] = self.model_libs[0]
+		tbhdu.header['Model'] = self.model_libs[0]
 		tbhdu.header['HIERARCH converged'] = 'False'
 		tbhdu.header['HIERARCH age_lightW'] = default_value
 		tbhdu.header['HIERARCH age_lightW_up'] = default_value
@@ -725,5 +757,8 @@ class StellarPopulationModel:
 		tbhdu.header['HIERARCH total_mass_low']  = default_value
 		tbhdu.header['HIERARCH EBV']                   = default_value
 		tbhdu.header['HIERARCH ssp_number']            = default_value
+
+		#tbhdu.writeto(self.outputFile + self.suffix, overwrite = True)
+
 		return tbhdu
 

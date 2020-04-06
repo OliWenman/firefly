@@ -3,31 +3,22 @@
 {% block content %}
 	<head>
 	  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
+	  <link rel="stylesheet" type="text/css" href = "/static/firefly/layout.css" />
 	</head>
 
-	<style type="text/css">
-		td
-	    {
-	        padding: 0px;
-	        margin: 0px;
-	        height: 0px;
-	        border: none;
-	        border-spacing: 0px;
-	    }
-	    tr
-	    {
-	        padding: 0px;
-	        margin: 0px;
-	        height: 0px;
-	        border: none;
-	        border-spacing: 0px;
-	    }
-	</style>
-
-	<body class="big">
+	<body>
 		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
 		<script type="text/javascript"> var s = 0; var m = 1;</script>
-		<header><b>Welcome to Firefly!</b></header>
+
+		<h1>What is Firefly?</h1>
+		
+		<p>
+			<b>F</b>itting <b>I</b>te<b>R</b>ativ<b>E</b>ly <b>F</b>or <b>L</b>ikelihood anal<b>Y</b>sis is a full spectral fitting code using the chi-squared minimisation method. It is able to derive the stellar population properties of stellar systems, be these observed galaxy or star cluster spectra, or model spectra from simulations. For more information about firefly, please visit the ICG page.
+		</p>
+		<h2>Process your data</h2>
+		<p>
+			Upload your data, choose appropiate parameters and a model to fit to the data. Hover over the labels to gain more information about each input field if you are unsure.
+		</p>
 
 		<form enctype="multipart/form-data" method = "POST">
 			{% csrf_token %}
@@ -35,109 +26,119 @@
 			<fieldset>
 				<legend><b>SED file</b></legend>
 
-				<font>
-					To see the correct fits file formats, <a  href="{% url 'firefly:fits_format' %}"> click here.</a>
-				</font>
-				<br/>
-
-				<a  href="{% url 'firefly:download' location='example' job_id=0  %}"> Download Example data </a>
-				<br/>
-
-				{% for field in SED.visible_fields %}
-					{{field}}
-					<br/><b id="SED_ERROR"><font color="red">{{field.errors}}</font></b >
-				{% endfor %}
-
-				<div id="test">
-					<script type="text/javascript"> document.getElementById("test").style.display = 'none'; </script>
-					<font size="-1">
-						<br>
-						ASCII files require additional inputs.
-						<br>
-					</font>
-					<table>
-						{% for field in ascii_additional_inputs.visible_fields %}
-							<tr>
-								<td><div class="tooltip"> {{ field.label_tag }}
-									{% if field.help_text %}
-			              				<span class="tooltiptext">{{ field.help_text }}</span>
-			            			{% endif %}
-			            		</div></td>
-								
-								<td>
-									{{ field }}
-								</td>
-							</tr>
+				<div class="row">
+					<div class="column" style="left: 0px;">
+						{% for field in SED.visible_fields %}
+							{{field}}
+							<br/><b id="SED_ERROR"><font color="red">{{field.errors}}</font></b >
 						{% endfor %}
-					</table>
+
+						<div id="test">
+							<script type="text/javascript"> document.getElementById("test").style.display = 'none'; </script>
+							<p>
+								<font size="-1">ASCII files require additional inputs.</font>
+							</p>
+							<table>
+								{% for field in ascii_additional_inputs.visible_fields %}
+									<tr>
+										<td><div class="tooltip"> {{ field.label_tag }}
+											{% if field.help_text %}
+					              				<span class="tooltiptext">{{ field.help_text }}</span>
+					            			{% endif %}
+					            		</div></td>
+										
+										<td>
+											{{ field }}
+										</td>
+									</tr>
+								{% endfor %}
+							</table>
+						</div>
+					</div>
+					<div class="column">
+						Select a fits table or ascii file. For more information on how the file should be formatted, <a  href="{% url 'firefly:fits_format' %}"> click here</a> or you can <a  href="{% url 'firefly:download' location='example' job_id=0  %}"> download example data. </a>
+					</div>
 				</div>
 
 			</fieldset>
 
 			<fieldset>
 				<legend><b>Model</b></legend>
-				<table>
-					{% for field in form.visible_fields %}
-					<tr>
-						<td><div class="tooltip">{{ field.label_tag }}
-							{% if field.help_text %}
-	              				<span class="tooltiptext">{{ field.help_text }}</span>
-	            			{% endif %}
-	            		</div></td>
-						
-						{{ field.errors }}
-						<td>{{ field }}</td>
-					</tr>
-					{% endfor %}
-				</table>
+				<div class="row">
+					<div class="column">
+						<table>
+							{% for field in form.visible_fields %}
+								<tr>
+									<td>
+										<div class="tooltip">
+											{{ field.label_tag }}
+											{% if field.help_text %}
+					              				<span class="tooltiptext">{{ field.help_text }}</span>
+					            			{% endif %}
+					            		</div>
+				            		</td>
+									{{ field.errors }}
+									<td>
+										{{ field }}
+									</td>
+								</tr>
+							{% endfor %}
+						</table>
+					</div>
+					<div class="column">
+						Select your model opitions to fit to your data. The model selected and parameters chosen are tailered to different types of galaxies, so if it doesn't converge then try again with another model or inputs.
+					</div>
+				</div>
 			</fieldset>
 
 			<fieldset>
 				<legend><b>Masking Emission lines</b></legend>
+				<div class="row">
+					<div class="column">
+						<table>
+							{% for field in emissionlines_form.visible_fields %}
+								<tr>
+									<td><div id="forms" class="tooltip"> {{ field.label_tag }}
+										{% if field.help_text %}
+				              				<span class="tooltiptext">{{ field.help_text }}</span>
+				            			{% endif %}
+				            		</div></td>
+									
+									<td>
+										{{ field }}
 
-				<font size="-1">
-					If your data contains emission lines, specify them as this can affect the fitting Firefly performs on your data.
-					<br>
-					<br>
-				</font>
-				<table>
-					{% for field in emissionlines_form.visible_fields %}
-						<tr>
-							<td><div id="forms" class="tooltip"> {{ field.label_tag }}
-								{% if field.help_text %}
-		              				<span class="tooltiptext">{{ field.help_text }}</span>
-		            			{% endif %}
-		            		</div></td>
-							
-							<td>
-								{{ field }}
+										<script type="text/javascript"> 
+											if ("{{field.label}}".includes('Emission line ')) 
+											{
 
-								<script type="text/javascript"> 
-									if ("{{field.label}}".includes('Emission line ')) 
-									{
+												if (m <= "{{emissionlines_form.extra_field_count.value}}") {++m;}
+												else {
 
-										if (m <= "{{emissionlines_form.extra_field_count.value}}") {++m;}
-										else {
+													var name = 'id_Emission_line_';
+													var temp = "{{forloop.counter}}" - s;
+										  			var new_name = name + temp ;
 
-											var name = 'id_Emission_line_';
-											var temp = "{{forloop.counter}}" - s;
-								  			var new_name = name + temp ;
-
-								  			$('label[for="'+new_name+'"], input[id="'+new_name+'"]').css("display","none");
-								  			document.getElementById(new_name).style.display = 'none';
-								  		}
-									}
-									else{
-										++s;
-									}	
-								</script>
-							</td>
-						</tr>
-					{% endfor %}
-				</table>
-				<button id="add-another" type="button">add</button>
-				<button id="remove-another" type="button">remove</button>
+										  			$('label[for="'+new_name+'"], input[id="'+new_name+'"]').css("display","none");
+										  			document.getElementById(new_name).style.display = 'none';
+										  		}
+											}
+											else{
+												++s;
+											}	
+										</script>
+									</td>
+								</tr>
+							{% endfor %}
+						</table>
+						<button id="add-another" type="button">add</button>
+						<button id="remove-another" type="button">remove</button>
+					</div>
+					<div class="column">
+						If your data contains emission lines, specify them as this can affect the fitting Firefly performs on your data.
+					</div>
+				</div>
 			</fieldset>
+			<br>
 
 			<button type="submit" name = "submit" id = "submit">Submit</button>
 

@@ -10,6 +10,8 @@ import os
 from astropy.io import fits
 from .fits_table import Fits_Table
 
+from django.utils.safestring import mark_safe
+
 class SEDform(forms.ModelForm):
 	class Meta:
 		model = SED
@@ -57,55 +59,43 @@ class SEDfileform(forms.Form):
 		
 		elif ext == '.fits':
 
-			sed_file_path = os.path.join(settings.MEDIA_ROOT, value.name)
+			sed_file_path = os.path.join(settings.TEMP_FILES, value.name)
 
 			with open(sed_file_path, 'wb+') as destination:
 				for chunk in value.chunks():
 					destination.write(chunk)
-			hdul = fits.open(sed_file_path)
 			
-			"""
-			try:
-				
-				hdul[0].header['RA']
-				hdul[0].header['DEC']
+			file_okay = True
+			test_array = ['spectra', 'flux', 'loglam', 'ivar', 'Z', 'vdisp', 'ra', 'dec']
 
-				hdul[1].data['loglam']
-				hdul[1].data['flux']
-				hdul[1].data['ivar']
-				hdul[2].data['Z'][0] 
-				hdul[2].data['VDISP'][0]
+			with fits.open(sed_file_path) as hdul:
+				try:
+					for file_data in test_array:
+						hdul[1].data[file_data]
+						test_array.remove(file_data)
 
-				hdul.close()
-				os.remove(sed_file_path)
+				except:
+					file_okay = False
 
-			except(IndexError):
-				hdul.close()
-				#time.sleep(0.01)
-				os.remove(sed_file_path)
-				raise ValidationError(u'Fits file not correct format!')
-			"""
+			os.remove(sed_file_path)
 
-			try:
-				
-				hdul[1].data['spectra']
-				hdul[1].data['flux']
-				hdul[1].data['loglam']
-				hdul[1].data['ivar']
+			if file_okay == False:
+				print(test_array)
 
-				hdul[1].data['Z']
-				hdul[1].data['vdisp']
-				hdul[1].data['ra']
-				hdul[1].data['dec']
+				error_message = u'Fits table incorrect format. Missing the following columns: '
+				end = len(test_array)
+				n = 0
+				for data_missing in test_array:
+					error_message = error_message + data_missing
+					n = n + 1
 
-				hdul.close()
-				os.remove(sed_file_path)
+					if n == end:
+						error_message = error_message + ". "
+					else: 
+						error_message = error_message + ", "
 
-			except:
-				hdul.close()
-				#time.sleep(0.01)
-				os.remove(sed_file_path)
-				raise ValidationError(u'Fits file not correct format!')
+				raise ValidationError(error_message)
+
 
 	input_file = forms.FileField(required = True, 
 								 widget=forms.FileInput(attrs={'accept' : ('.ascii','.fits',)}), 
@@ -131,21 +121,23 @@ model_libs_choices  = [('MILES', 'MILES'),
 class FireFlySettings_Form(forms.Form):
 
 	ageMin           = forms.DecimalField(initial   = 0, 
-										  label     = "Minimum age", 
+										  label     = mark_safe("Minimum age [Gyr]"), 
 										  min_value = 0, 
 										  widget    = forms.TextInput({ "placeholder": 0 }))
 	
-	ageMax           = forms.DecimalField(label     = "Maximum age", 
+	ageMax           = forms.DecimalField(label     = "Maximum age [Gyr]", 
 										  min_value = 0, 
 										  required  = False, 
 										  widget    = forms.TextInput({ "placeholder": "Default"}),
-										  help_text = "If left blank, Firefly will calculate a value based on the redshift using the astropy library.")
+										  help_text = "If left blank, Firefly will calculate a value based on the provided redshift.")
 	
-	ZMin             = forms.DecimalField(initial   = 0.0001, 
+	ZMin             = forms.DecimalField(initial   = 0.0001,
+										  label     = "Minimum redshift", 
 										  min_value = 0,
 										  widget    = forms.TextInput({ "placeholder": 0.0001 }))
 	
 	ZMax             = forms.DecimalField(initial   = 10, 
+										  label     = "Maximum redshift", 
 										  min_value = 0,
 										  widget    = forms.TextInput({ "placeholder": 10 }))
 	
@@ -153,11 +145,6 @@ class FireFlySettings_Form(forms.Form):
 										  min_value = 0.,
 										  widget    = forms.TextInput({ "placeholder": 1 }), 
 										  help_text = "Firefly assumes flux units of erg/s/A/cm^2. Choose factor in case flux is scaled (e.g. flux_units=10**(-17) for SDSS")
-	
-	error            = forms.DecimalField(label     = "Error(%)", 
-										  initial   = 10, 
-										  min_value = 0., 
-										  max_value = 100.)
 	
 	model_key        = forms.CharField(widget = forms.Select(choices = model_key_choices),
 									   help_text = "m11: Maraston and Stromback 2011, m09: Maraston et al. 2009, bc03: Bruzual and Charlot 2003")
@@ -168,7 +155,7 @@ class FireFlySettings_Form(forms.Form):
 
 	imfs             = forms.CharField(label = "IMF", 
 									   widget = forms.Select(choices = imf_choices), 
-									   help_text = "Initial mass function model")
+									   help_text = "Describes the initial distribution of masses for a population of stars. ss: Salpeter, kr: Kroupa, cha: Chabrier")
 	
 	wave_medium      = forms.CharField(label = "Wave medium", 
 									   widget = forms.Select(choices = wave_medium_choices), 
@@ -226,6 +213,7 @@ class Emissionlines_Form(forms.Form):
 
 	N_angstrom_masked = forms.IntegerField(initial = 20,
 										   label = "Width of masking [Å]",
+										   help_text = "Firefly will ignore (mask) the data points corrosponding to the emission lines selected. Select the width of this masking around each point.",
 										   widget=forms.TextInput(attrs={'size': '3'}))
 
 	def __init__(self, *args, **kwargs):

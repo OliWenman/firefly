@@ -12,7 +12,12 @@ from background_task import background
 from background_task.models import Task
 from background_task.models import CompletedTask
 
+from django.conf import settings
+
+from datetime import datetime
 import os
+#from django.utils.timezone import now
+
 """
 def wrapper(method):
     @background(method)
@@ -33,66 +38,41 @@ class SED(models.Model):
 #Each job identified by a unique job_id.
 class Job_Submission(models.Model):
 
-	job_id      = models.IntegerField(default = 0)
-	#Need to add
-	input_file  = models.FileField(upload_to='', blank = True)
-	output_file = models.FileField(upload_to='', blank = True)
+	job_id           = models.IntegerField(default = 0)
+	input_file       = models.FileField(upload_to='input_files', blank = False, editable = False)
+	output_file      = models.FileField(upload_to='output_files', blank = True)
+	n_spectra        = models.IntegerField(default = 1, verbose_name='Number of spectra')
+	ageMin           = models.FloatField(default = None, null=True)
+	ageMax		     = models.FloatField(default = None, null=True)
+	Zmin			 = models.FloatField(default = None, null=True)
+	Zmax			 = models.FloatField(default = None, null=True)
+	flux_units		 = models.FloatField(default = None, null=True)
+	model            = models.CharField(max_length = 16, null=True)
+	imf              = models.CharField(max_length = 15, null=True)	
+	wave_medium      = models.CharField(max_length = 10, null=True)
+	downgrade_models = models.BooleanField(default = None, null=True)
+	width_masking    = models.FloatField(default = None, null=True)
+	emission_lines    = models.CharField(max_length = 50, null=True)
+	submitted        = models.DateTimeField(default=datetime.now, blank=True)
+
+	#created_date = models.DateTimeField(default=now, editable=False)
+	#updated_at = models.DateTimeField(auto_now=True)
 
 	#Status will show what state its in. 
-	#1)pre-processing
+	#1)queued
 	#2)processing
 	#3)complete/failed
 	status      = models.CharField(default = 'preprocessing', max_length=20)
 
-	def output_file_(self):
-		return os.path.basename(self.output_file.name)
-
-	def input_file_(self):
-		return os.path.basename(self.input_file.name)
-
 	def __str__(self):
 		return str(self.job_id)
 
-	"""
-	def process_input(self,
-					  input_file, 
-					  job_id,
-					  ZMin,
-					  ZMax,
-					  flux_units,
-					  error,
-					  model_key,
-					  model_libs,
-					  imfs,
-					  wave_medium,
-					  downgrade_models):
-
-		firefly = firefly_class.Firefly()
-		firefly.model_input()
-		firefly.file_input(input_file = input_file)
-		firefly.settings()
-		
-		output = firefly.run(settings.MEDIA_ROOT, self.job_id)
-		
-		self.output_file = output
-		#warnings.filterwarnings("error")
-
-		#try:
-
-		#job_submission      = Job_Submission.objects.get(job_id = job_id)
-		#job_submission.input_file = output
-		#job_submission.save()
-			
-		#os.remove(input_file)
-		#except:
-		#	print("Aborted,", job_id)
-	"""
 	class Meta:
 		verbose_name = 'Job Submission'
 
 class Example_Data(models.Model):
 
-	input_file  = models.FileField(upload_to='', blank = False)
+	input_file  = models.FileField(upload_to="example_files", blank = False, )
 	description = models.CharField(max_length = 100) 
 	example_id     = models.IntegerField(default = 0)
 

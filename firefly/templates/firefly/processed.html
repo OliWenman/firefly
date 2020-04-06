@@ -2,8 +2,6 @@
 
 {% block content %}
 
-</script>
-
   <script type="text/x-mathjax-config">
   MathJax.Hub.Config({"HTML-CSS": { preferredFont: "TeX", availableFonts: ["STIX","TeX"], linebreaks: { automatic:true }, EqnChunk: (MathJax.Hub.Browser.isMobile ? 10 : 50) },
       tex2jax: { inlineMath: [ ["\\$", "\\$"], ["\\(", "\\)"] ], displayMath: [ ["$$","$$"], ["\\[", "\\]"] ], processEscapes: true, ignoreClass: "tex2jax_ignore|dno" },
@@ -12,26 +10,121 @@
   });
   </script>
   <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
-
+  {% load index %}
   <br/>
 
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
     <link rel="stylesheet" type="text/css" href = "/static/firefly/layout.css" />
+
   </head>
 
   <section>
-    <div><b>Processing finished!</b> Thank you for using Firefly.</div>
+    <h1>Finished processing!</h1> 
+    <p>Thank you for using Firefly.</p>
 
-    <br/>
-
-    <a  href="{% url 'firefly:download' location='results' job_id=job_id %}"> <b>Download results.</b></a>  
-    These results will remain in our database until (place holder), after that they will be deleted.
-
-    <div>
-      <br/>
+    <p>
+      <a  href="{% url 'firefly:download' location='results' job_id=job_id %}"> <b>Download results, </b></a>  
+      you have 24 hours until they are deleted.
+    </p>
+    <p>
       <b><a href="{% url 'firefly:home' %}">Click here</a></b> to return home and submit another request.
-    </div>
+    </p>
+
+    <h3>
+        Inputs:
+      </h3>
+      <table>
+        <tr>
+          <td>
+            Total spectra
+          </td>
+          <td>
+            : {{ plot|length }}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Minimun age
+          </td>
+          <td>
+            : {{ageMin}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Maximum age
+          </td>
+          <td>
+            : {{ageMax}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Redshift range
+          </td>
+          <td>
+            : {{Zmin}} - {{Zmax}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Flux units
+          </td>
+          <td>
+            : {{flux_units}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Model
+          </td>
+          <td>
+            : {{model}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            IMF
+          </td>
+          <td>
+            : {{imf}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Wave medium
+          </td>
+          <td>
+            : {{wave_medium}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Downgrade models  
+          </td>
+          <td>
+            : {{downgrade_models}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Width of masking
+          </td>
+          <td>
+            : {{width_masking}}
+          </td>
+        </tr>
+        <tr>
+          <td>
+            Emission lines masked
+          </td>
+          <td>
+            : {{emission_lines}}
+          </td>
+        </tr>
+
+      </table>
   </section>
 
   <style type="text/css">
@@ -41,28 +134,54 @@
     }
   </style>
   <br>
-  <table>
-      <tr style="size: 5; text-align: center;">
-        <th>Spectra</th>
-        <th>Calculated values</th>
-      </tr>
-      {% for myplot in plot %}
-      <tr>
-        <td>
-          <img src="data:image/png;base64,{{ myplot|safe }}" >
-        </td>
 
-        <td>
-          <ul><font size="5" style="line-height: 2.5; vertical-align: text-top;">
-            <li>\$  \left[ Z \over H \right] \$: {{metallicity}} </li>
-            <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{mass}} </li>
-            <li><i> Age </i>: {{age}} </li>
-            <li>\$ E(B-V) \$: {{light}}</li>
-          </ul></font>
-        </td>
+  <div class="wrapper1">
+    <div class="div1"></div>
+  </div>
+  <div class="wrapper2">
+    <div class="div2">
+      <table>
+        <tr style="size: 5; text-align: center;">
+          <th><h2>No.</h2></th>
+          <th><h2>Spectra</h2></th>
+          <th><h2>Calculated values</h2></th>
+        </tr>
+        {% for myplot in plot %}
+        <tr>
+          <td valign="top">
+            {{forloop.counter}}.
+          </td>
+          <td>
+            <img src="data:image/png;base64,{{ myplot|safe }}" >
+          </td>
 
-      </tr>
-      {% endfor %}
-      
-  </table>
+          <td valign="top" style="white-space: nowrap;">
+            <ul><font size="5" style="line-height: 2.5;">
+              {% if converged|index:forloop.counter0 %}
+                <li>\$ \left[ Z \over H \right] \$: {{ metallicity|index:forloop.counter0 }} </li>
+                <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{ mass|index:forloop.counter0 }} </li>
+                <li><i> Age </i>: {{ age|index:forloop.counter0 }} </li>
+                <li>\$ E(B-V) \$: {{ light|index:forloop.counter0 }}</li>
+              {% else %}
+                <li><font color="red"><b>Did not converge.</b></font></li>
+              {% endif %}
+            </ul></font>
+          </td>
+
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    $(function(){
+      $(".wrapper1").scroll(function(){
+        $(".wrapper2").scrollLeft($(".wrapper1").scrollLeft());
+      });
+      $(".wrapper2").scroll(function(){
+        $(".wrapper1").scrollLeft($(".wrapper2").scrollLeft());
+      });
+    });
+  </script>
 {% endblock %}

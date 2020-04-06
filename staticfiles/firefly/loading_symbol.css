@@ -1,0 +1,19 @@
+.loader {
+  display: inline-block;
+  border: 8px solid #DC143C; /* Light grey */
+  border-top: 8px solid #3498db; /* Blue */
+  border-bottom: 8px solid #3498db; /* Blue */
+  border-radius: 85%;
+  width: 10px;
+  height: 10px;
+  animation: spin 2s linear infinite;
+
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}

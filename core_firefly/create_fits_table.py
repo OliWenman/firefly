@@ -12,9 +12,10 @@ import matplotlib.pyplot as plt
 #input_files = ["/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/0266/spec-0266-51602-0573.fits", r"/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/0266/spec-0266-51602-0573.fits", r"/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/0266/spec-0266-51602-0573.fits"]
 input_files = ["/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/0266/spec-0266-51602-0573.fits", 
                "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/0266/spec-0266-51630-0623.fits",
-               "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/1045/spec-1045-52725-0628.fits"]
+               "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/1045/spec-1045-52725-0628.fits",
+               "/Users/User/Documents/University/Third_Year/Project/Webstie/firefly_website/core_firefly/example_data/spectra/3586/spec-3586-55181-0003.fits"]
 
-output_file = 'testtable.fits'
+output_file = 'testtable2.fits'
 
 spectra_name = np.array([])
 flux         = np.array([])

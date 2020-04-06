@@ -35,6 +35,8 @@ import matplotlib.gridspec as gridspec
 from astropy.io import fits
 import sys, traceback
 from .fits_table import Fits_Table
+import astropy.cosmology as co
+from multiprocessing import Process
 
 time_in_database = 60*60
 clean_db = True
@@ -45,89 +47,11 @@ def clean_database(job_id):
 
 	try:
 		job_submission = Job_Submission.objects.get(job_id = job_id)
+		job_id = job_submission.job_id
 		job_submission.delete()
-		print("deleted", job_submission.job_id)
+		print("deleted", job_id)
 	except:
-		print("Failed to delete", job_submission.job_id)
-
-"""
-@background(name = 'firefly', queue = 'my-queue')
-def firefly_run(input_file, 
-				job_id,
-				ageMin,
-				ageMax,
-				ZMin,
-				ZMax,
-				flux_units,
-				error,
-				models_key,
-				model_libs,
-				imfs,
-				wave_medium,
-				downgrade_models,
-				emissionline_list,
-				N_angstrom_masked,
-				redshift     = None,
-				ra           = None,
-				dec          = None,
-				vdisp        = None,
-				r_instrument = None):
-
-	#warnings.filterwarnings("error")
-
-	#Setup firefly settings
-	firefly = firefly_class.Firefly()
-
-	firefly.settings(ageMin           = ageMin,
-					 ageMax			  = ageMax,
-					 ZMin             = ZMin,
-					 ZMax             = ZMax,
-					 flux_units       = flux_units,
-					 models_key       = models_key,
-					 model_libs       = model_libs,
-					 imfs             = imfs,
-					 data_wave_medium = wave_medium,
-					 downgrade_models = downgrade_models)
-	try:
-		if os.path.splitext(input_file)[1] == ".ascii":
-			
-			firefly.model_input(redshift     = redshift,
-								ra           = ra,
-								dec          = dec,
-								vdisp        = vdisp,
-								r_instrument = r_instrument)
-
-		#Run firefly to process the data
-		output = firefly.run(input_file             = input_file, 
-							 outputFolder           = settings.MEDIA_ROOT,
-							 emissionline_list      = emissionline_list,
-							 N_angstrom_masked      = N_angstrom_masked)
-
-		#Get the Job_Submission and save it to the database.
-		job_submission = Job_Submission.objects.get(job_id = job_id)
-		if os.path.isfile(output):
-			job_submission.output_file = output
-			job_submission.status = "complete"
-		else:
-			job_submission.status = "did_not_converge"
-		job_submission.save()
-
-		#After completion, remove files from database after certain amount of time
-		#so we don't have to store files.
-		if clean_db:
-			clean_database(job_id)
-			
-	except:
-
-		traceback.print_exc()
-
-		#Get the Job_Submission and save it to the database.
-		job_submission        = Job_Submission.objects.get(job_id = job_id)
-		job_submission.status = "failed"
-		job_submission.save()
-
-		clean_database(job_id)
-"""
+		print("Failed to delete", job_id)
 
 def home(request):
 
@@ -160,13 +84,17 @@ def home(request):
 				n = -5		
 
 			sed_file_name = sed_file.name[0:n] + "_" +str(job_id) + file_extension
-			sed_file_path = os.path.join(settings.MEDIA_ROOT, sed_file_name)
+			sed_file_path = os.path.join(settings.INPUT_FILES, sed_file_name)
 
 			#Save the input_file to disk
 			file_destination = open(sed_file_path, 'wb+')
 			for chunk in sed_file.chunks():
 				file_destination.write(chunk)
 			file_destination.close()
+
+			hdulist      = fits.open(sed_file_path)
+			n_spectra    = len(hdulist[1].data["spectra"])
+			hdulist.close()
 		
 			#Get the variables from the form.
 			ageMin, ageMax, ZMin, ZMax, flux_units = settings_form.check_values(ageMin     = request.POST['ageMin'],
@@ -177,24 +105,28 @@ def home(request):
 
 			#print("ageMin =",ageMin, "ageMax =", ageMax, "ZMin =", ZMin, "ZMax = ", ZMax, "flux_units =", flux_units)
 			ageMin			 = float(request.POST['ageMin'])
+			print(ageMin)
 			#ageMax           = request.POST['ageMax']
 			ZMin             = float(request.POST['ZMin'])
 			ZMax             = float(request.POST['ZMax'])
 			flux_units       = float(request.POST['flux_units'])
-			error            = float(request.POST['error'])
+			#error            = float(request.POST['error'])
 			models_key       = request.POST['model_key']
 			model_libs       = request.POST['model_libs']
 			imfs             = request.POST['imfs']
 			wave_medium      = request.POST['wave_medium']
 			try:
-				downgrade_models = request.POST['downgrade_models']
+				request.POST['downgrade_models']
+				downgrade_models = True
 			except MultiValueDictKeyError:
 				downgrade_models = False
 
 			emissionlines = []
+			emission_lines_str = ""
 			for i in range(emissionlines_form.max_emissionlines):
 				if request.POST['Emission_line_' + str(i +1)] != '':
 					emissionlines.append(request.POST['Emission_line_' + str(i +1)])
+					emission_lines_str = emission_lines_str + ", "+ request.POST['Emission_line_' + str(i +1)]
 			N_angstrom_masked = float(request.POST['N_angstrom_masked'])
 
 			#ASCII inputs
@@ -206,12 +138,70 @@ def home(request):
 				r_instrument = float(request.POST['r_instrument'])
 			except(ValueError):
 				redshift = ra = dec = vdisp = r_instrument = None
+
+			if model_libs == "MILES":
+				temp_model_libs = model_libs + " - "+ models_key
+			else:
+				temp_model_libs = model_libs
 		
+			"""
+			if ageMax == None:
+				if file_extension == ".fits":
+					hdul = fits.open(sed_file_path)
+					true_redshift = hdul[1].data['Z']
+					hdul.close()
+				else:
+					true_redshift = redshift
+				ageMax = co.Planck15.age(true_redshift).value
+				print(ageMax)
+				print(true_redshift)
+			else:
+				ageMax = float(ageMax)
+			"""
+
+			place_holder = 0
+
 			#Create Job_Submission instance to save to database
 			job_submission = Job_Submission.objects.create(job_id     = job_id,
-														   status     = 'processing',
-														   input_file = sed_file_path)  
+														   status     = 'queued',
+														   input_file = os.path.relpath(sed_file_path, settings.MEDIA_ROOT),
+														   n_spectra  = n_spectra,
+														   ageMin     = ageMin,
+														   ageMax     = place_holder,
+														   Zmin       = ZMin,
+														   Zmax       = ZMax,
+														   flux_units = flux_units,
+														   imf        = imfs,
+														   model      = temp_model_libs,
+														   wave_medium = wave_medium,
+														   downgrade_models = downgrade_models,
+														   width_masking = N_angstrom_masked,
+														   emission_lines = emission_lines_str)  
 			#Run firefly task in the background
+			p = Process(target = firefly_run, args = (sed_file_path, 
+													  job_id,
+													  ageMin,
+													  ageMax,
+													  ZMin,
+													  ZMax,
+													  flux_units,
+													  0,
+													  models_key,
+													  model_libs,
+													  imfs,
+													  wave_medium,
+													  downgrade_models,
+													  emissionlines,
+													  N_angstrom_masked,
+													  #Additional ascii file inputs
+													  redshift,
+													  ra,
+													  dec,
+													  vdisp,
+													  r_instrument))
+			p.run()
+
+			"""
 			firefly_run(input_file        = sed_file_path, 
 						job_id            = job_id,
 						#Model inputs
@@ -220,7 +210,7 @@ def home(request):
 						ZMin              = ZMin,
 						ZMax              = ZMax,
 						flux_units        = flux_units,
-						error             = error,
+						error             = 0,
 						models_key        = models_key,
 						model_libs        = model_libs,
 						imfs              = imfs,
@@ -234,6 +224,7 @@ def home(request):
 						dec               = dec,
 						vdisp             = vdisp,
 						r_instrument      = r_instrument)
+			"""
 
 			#Use HttpResponseRedirect when submitting forms to stop resubmitting
 			return HttpResponseRedirect(reverse('firefly:processed', args=(job_id,)))
@@ -261,8 +252,10 @@ def home(request):
 				 'emissionlines_form' : emissionlines_form,
 				 'ascii_additional_inputs': additional_inputs})
 
-
+import matplotlib as mpl
 def processed(request, job_id):
+
+	mpl.use('Agg')
 
 	#Find the the id in databse, if it can't then catch exception and
 	#redirect user to page saying the id they want doesn't exist.
@@ -274,43 +267,72 @@ def processed(request, job_id):
 		if job_submission.status == "failed":
 			return render(request, 'firefly/error.html', {'job_id': job_id})
 
-		if job_submission.status == "did_not_converge":
-			return render(request, 'firefly/did_not_converge.html', {'job_id': job_id})
-
 		plot_size = (7, 5)
 		
 		if job_submission.output_file.name and job_submission.status == "complete":
 
-			hdul = fits.open(job_submission.output_file.name)
+			hdul = fits.open(job_submission.output_file.path)
 
 			n_spectra = len(hdul[1].data['wavelength'])
 
-			graphic_array = []	
+			graphic_array      = []	
+			metallicity_array  = []
+			stellar_mass_array = []
+			age_array          = []
+			light_array        = []
+			converged_array    = []
+			#imf_array          = []
+			#model_array        = []
 			for i in range(n_spectra):
 				
 				fig    = plt.figure(figsize = plot_size)
 				buffer = BytesIO()
 
-				data        = hdul[1].data
-				wavelength  = data['wavelength'][i]
-				flux        = data['original_data'][i]
-				model       = data['firefly_model'][i]
+				wavelength  = hdul[1].data['wavelength'][i]
+				flux        = hdul[1].data['original_data'][i]
+				model       = hdul[1].data['firefly_model'][i]
+				spectra     = hdul[1].data['spectra'][i]
+				converged   = hdul[1].data['converged'][i]
+				#imf         = hdul[1].data['IMF'][i]
+				#model_used  = hdul[1].data['Model'][i]
 
-				csp_age=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-				csp_Z=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-				csp_light=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-				csp_mass=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-				
-				age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))+' Gyr'
-				metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))+' dex'
-				mass        = str(np.around(hdul[1].data['stellar_mass'][i],decimals=2))
-				light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))+' mag'
-				for n in range(len(csp_age)):
-					csp_age[n]=hdul[1].data['log_age_ssp_'+str(n)][i]
-					csp_Z[n]=hdul[1].data['metal_ssp_'+str(n)][i]
-					csp_light[n]=hdul[1].data['weightLight_ssp_'+str(n)][i]
-					csp_mass[n]=hdul[1].data['weightMass_ssp_'+str(n)][i]
+				#imf_array.append(imf)
+				#model_array.append(model_used)
 
+				if converged == 'False':
+					converged = False
+				elif converged == 'True':
+					converged = True
+
+				converged_array.append(converged)
+
+				if converged:
+
+					csp_age=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+					csp_Z=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+					csp_light=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+					csp_mass=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+					
+					age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))+' Gyr'
+					metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))+' dex'
+					mass        = str(np.around(hdul[1].data['stellar_mass'][i],decimals=2))
+					light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))+' mag'
+
+					for n in range(len(csp_age)):
+						csp_age[n]=hdul[1].data['log_age_ssp_'+str(n)][i]
+						csp_Z[n]=hdul[1].data['metal_ssp_'+str(n)][i]
+						csp_light[n]=hdul[1].data['weightLight_ssp_'+str(n)][i]
+						csp_mass[n]=hdul[1].data['weightMass_ssp_'+str(n)][i]
+				else:
+					age         = None
+					metallicity = None
+					mass        = None
+					light       = None
+
+				age_array.append(age)
+				metallicity_array.append(metallicity)
+				stellar_mass_array.append(mass)
+				light_array.append(light)
 
 				gridspec.GridSpec(2,2)
 				gridsize = (2,2)
@@ -321,34 +343,36 @@ def processed(request, job_id):
 				plt.ylabel('Flux')
 				plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
 				plt.plot(wavelength, flux, label = 'Original data')
-				plt.plot(wavelength, model, label = 'Fitted data')
-				plt.title('Output: '+ os.path.basename(job_submission.output_file.name) + '\n')
-				plt.xlim(left = wavelength[0])
-				plt.xlim(right = wavelength[-1])
+				if converged:
+					plt.plot(wavelength, model, label = 'Fitted data')
+				plt.title(spectra)
+				plt.xlim(left = wavelength[0], right = wavelength[-1])
+				plt.ylim(bottom = 0)
 				plt.legend()
 				plt.grid()
 
-				#Small subplot 1
-				plt.subplot2grid(gridsize, (1,0))
-				plt.bar(10**(csp_age),
-						csp_light,
-						width=0.3,
-						align='center',
-						alpha=0.5)
-				plt.xlabel('Age')
-				plt.ylabel('frequency/Gyr')
-				#plt.title() 
+				if converged == True:
+					#Small subplot 1
+					plt.subplot2grid(gridsize, (1,0))
+					plt.bar(10**(csp_age),
+							csp_light,
+							width=0.3,
+							align='center',
+							alpha=0.5)
+					plt.xlabel('Age')
+					plt.ylabel('frequency/Gyr')
+					#plt.title() 
 
-				#Small subplot 2
-				plt.subplot2grid(gridsize, (1,1))
-				plt.bar(csp_Z, 
-						csp_light, 
-						width=0.1, 
-						align='center', 
-						alpha=0.5)
-				plt.xlabel('Z')
-				plt.ylabel('frequency/Gyr')
-				#plt.title()
+					#Small subplot 2
+					plt.subplot2grid(gridsize, (1,1))
+					plt.bar(csp_Z, 
+							csp_light, 
+							width=0.1, 
+							align='center', 
+							alpha=0.5)
+					plt.xlabel('Z')
+					plt.ylabel('frequency/Gyr')
+					#plt.title()
 
 				fig.tight_layout()
 
@@ -364,22 +388,35 @@ def processed(request, job_id):
 				graphic_array.append(graphic)	
 
 			hdul.close()
+			input_array = []
 
 			return render(request, 
 						  'firefly/processed.html', 
-						 {'job_id': job_id, 
-						  'plot':graphic_array,
-						  'age': age,
-						  'metallicity': metallicity,
-						  'mass': mass,
-						  'light': light})
+						 {'job_id':           job_id, 
+						  'plot':             graphic_array,
+						  'converged':        converged_array,
+						  'model':            job_submission.model,
+						  'imf':              job_submission.imf,
+						  'ageMin':           job_submission.ageMin,
+						  'ageMax':           job_submission.ageMax,
+						  'Zmin'  :           job_submission.Zmin,
+						  'Zmax'  :           job_submission.Zmax,
+						  'flux_units':       job_submission.flux_units,
+						  'wave_medium':      job_submission.wave_medium,
+						  'downgrade_models': job_submission.downgrade_models,
+						  'width_masking':    job_submission.width_masking,
+						  'emission_lines':   job_submission.emission_lines,
+						  'age':              age_array,
+						  'metallicity':      metallicity_array,
+						  'mass':             stellar_mass_array,
+						  'light':            light_array})
 
-		#If it doesn't display a loading page
+		#If it doesn't, display a loading page
 		else:
 			file_extension = os.path.splitext(job_submission.input_file.name)[1]
 			
 			if file_extension == ".ascii":
-				data = np.loadtxt(job_submission.input_file, unpack=True)
+				data = np.loadtxt(job_submission.input_file.path, unpack=True)
 				lamb = data[0,:]
 
 				wavelength = data[0,:]
@@ -388,7 +425,7 @@ def processed(request, job_id):
 				n_spectra  = 1
 			else:
 
-				hdul = fits.open(job_submission.input_file.name)
+				hdul = fits.open(job_submission.input_file.path)
 
 				n_spectra = len(hdul[1].data['flux'])
 
@@ -414,6 +451,13 @@ def processed(request, job_id):
 					left  = wavelength[0]
 					right = wavelength[-1]
 
+				gridspec.GridSpec(2,2)
+				gridsize = (2,2)
+
+				#Mainplot
+				plt.subplot2grid(gridsize, (0,0), colspan = 2, rowspan = 1)
+				plt.xlabel('Wavelength (Å)')
+
 				plt.plot(wavelength, flux, label = 'Original data')
 				plt.title(spectra)
 
@@ -422,6 +466,7 @@ def processed(request, job_id):
 				plt.grid()
 				plt.xlabel('Wavelength (Å)')
 				plt.ylabel('Flux')
+				plt.tight_layout()
 
 				plt.savefig(buffer, format='png')
 				buffer.seek(0)
@@ -453,9 +498,20 @@ def processed(request, job_id):
 
 			return render(request, 
 						  'firefly/processing.html', 
-						  {'job_id': job_id, 
-						  'plot'   : graphic_array,
-						  'queue'  : queue})
+						  {'job_id':          job_id, 
+						  'plot'   :          graphic_array,
+						  'model':            job_submission.model,
+						  'imf':              job_submission.imf,
+						  'ageMin':           job_submission.ageMin,
+						  'ageMax':           job_submission.ageMax,
+						  'Zmin'  :           job_submission.Zmin,
+						  'Zmax'  :           job_submission.Zmax,
+						  'flux_units':       job_submission.flux_units,
+						  'wave_medium':      job_submission.wave_medium,
+						  'downgrade_models': job_submission.downgrade_models,
+						  'width_masking':    job_submission.width_masking,
+						  'emission_lines':   job_submission.emission_lines,
+						  'queue'  :          queue})
 	else:
 		return render(request, 'firefly/not_found.html', {'job_id': job_id})
 
@@ -464,12 +520,11 @@ def download(request, location, job_id):
 
 	if location == 'results':
 		data = Job_Submission.objects.get(job_id = job_id)
-		file = data.output_file.name
+		file_path = data.output_file.path
+
 	elif location == 'example':
 		data = Example_Data.objects.get(example_id = job_id)
-		file = data.input_file.name
-	
-	file_path = os.path.join(settings.MEDIA_ROOT, file)
+		file_path = data.input_file.path
 
 	if os.path.exists(file_path):
 		with open(file_path, 'rb') as fh:
@@ -503,27 +558,21 @@ if found == False:
 
 def fits_format(request):
 
-	HDUL1 = [ "XTENSION= 'BINTABLE'           / binary table extension",
-			  "BITPIX  =                    8 / array data type",                                
-			  "NAXIS   =                    2 / number of array dimensions",
-			  "NAXIS1  =                   32 / length of dimension 1",                          
-			  "NAXIS2  =                 3818 / length of dimension 2",
-			  "PCOUNT  =                    0 / number of group parameters",                     
-			  "GCOUNT  =                    1 / number of groups",                               
-			  "TFIELDS =                    8 / number of table fields",                         
-			  "TTYPE1  = flux    " ,                                                           
-			  "TFORM1  = E       ",                                                            
-			  "TTYPE2  = loglam  ",                                                            
-			  "TFORM2  = E       ",                                                            
-			  "TTYPE3  = ivar    ",                                                            
-			  "TFORM3  = E       ",
-			  "END   "
-	]
+	data = Example_Data.objects.get(example_id = 0)
 
-	HDUL2 = [ "Z = /The redshift value",
-			  ""
+	hdul = fits.open(os.path.join(settings.EXAMPLE_FILES, data.input_file.path))
 
-	]
+	header0 = []
+	header1 = [] 
+	for i in hdul[0].header:
+		header0.append(str(i) + " = " + str(hdul[0].header[i]) + " / " +str(hdul[0].header.comments[i]))
+	
+	for i in hdul[1].header:
+		header1.append(str(i) + " = " + str(hdul[1].header[i]) + " / " +str(hdul[1].header.comments[i]))
 
-
-	return render(request, 'firefly/fits_format.html', {'HDUL1': HDUL1})
+	header0.append("END")
+	header1.append("END")
+	hdul.close()
+	
+	return render(request, 'firefly/fits_format.html', {'header0': header0,
+														'header1': header1,})

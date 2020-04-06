@@ -26,9 +26,9 @@ with open('./../SECRET_KEY_FIREFLY.txt') as f:
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
-BACKGROUND_TASK_RUN_ASYNC = False
+BACKGROUND_TASK_RUN_ASYNC = True
 MAX_ATTEMPTS = 1
 
 # Application definition
@@ -127,3 +127,21 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL  = '/media/'
+
+TEMP_FILES    = os.path.join(MEDIA_ROOT, 'temp_files')
+INPUT_FILES   = os.path.join(MEDIA_ROOT, 'input_files')
+OUTPUT_FILES  = os.path.join(MEDIA_ROOT, 'output_files')
+EXAMPLE_FILES = os.path.join(MEDIA_ROOT, 'example_files')
+
+#Create the directories if they do not exist.
+if os.path.isdir(TEMP_FILES) is False:
+    os.mkdir(TEMP_FILES)
+
+if os.path.isdir(INPUT_FILES) is False:
+    os.mkdir(INPUT_FILES)
+
+if os.path.isdir(OUTPUT_FILES) is False:
+    os.mkdir(OUTPUT_FILES)
+
+if os.path.isdir(EXAMPLE_FILES) is False:
+    os.mkdir(EXAMPLE_FILES)

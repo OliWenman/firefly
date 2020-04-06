@@ -1,20 +1,32 @@
 
 <head>
+	{% load static %} 
 	<meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-
-  	<link rel="stylesheet" type="text/css" href = "/static/firefly/styles.css" />
-
+  	<link rel="stylesheet" type="text/css" href = "{% static 'firefly/styles.css' %}" />
   	<title>
     	Firefly
 	</title>
 </head>
 
 <body>
-	<font size="+4" color="orange">
-		<b>Firefly</b>
-	</font>
-	<br/>
 
-	{% block content %}
-    {% endblock %}
+	<span class="header">
+	  <img width="160px" src="{% static 'firefly/images/uop.png' %}" alt="My image" style="position: absolute; right: 20px; top: 0px;" />
+	  <h1>Firefly</h1>
+	</span>
+
+	<div class = "content">
+		<div class="boarder">
+			{% block content %}
+		    {% endblock %}
+	    </div>
+
+	    <p>
+		    <font style="color: #808080; left: 50px;">
+		    	Website created and maintained by <a href="mailto:oliwenman1@gmail.com" subject="Firefly">Oliver J Wenman.</a>
+		    	<br>
+		    	For queries, please contact <a href="mailto:firefly@port.ac.uk"> firefly@port.ac.uk</a>
+		    </font>
+	    </p>
+    </div>
 </body>

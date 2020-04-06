@@ -24,12 +24,24 @@ from io import BytesIO
 from astropy.io import fits
 import sys, traceback
 
-time_in_database = 60*60
+time_in_database = 60*60*24
 clean_db = True
 
-def convert_to_fits_table(file_list,
+import sys, os
+
+# Disable
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
+
+def convert_to_fits_table(spectra_list,
+						  file_list,
 						  output_file):
 
+	#print("Converting", file_list, "to a fits table called", output_file)
 	n_spectra = 3
 
 	wavelength    = np.array([])
@@ -52,42 +64,29 @@ def convert_to_fits_table(file_list,
 	zero_array = np.zeros(max_length)
 	#Loop through the files
 	for file in file_list:
-	    
-	    hdulist = fits.open(file)
 
-	    #Find flux, pad it out with the last value if its smaller then the largest array so all are same length
-	    #Append it to the flux array
-	    #temp_flux = hdulist[1].data['flux']
-	    #temp_flux = np.pad(hdulist[1].data['flux'], (0,max_length - len(temp_flux)), mode='constant', constant_values=0)
-	    #flux = np.append(flux, temp_flux)
+		print("reading", file)
+		hdulist = fits.open(file)
 
+		new_length      = max_length - len(hdulist[1].data['wavelength'])
+		temp_wavelength = np.append(hdulist[1].data['wavelength'], np.full(shape = new_length, fill_value = hdulist[1].data['wavelength'][-1]))
+		wavelength      = np.append(wavelength, temp_wavelength)
 
-	    new_length      = max_length - len(hdulist[1].data['wavelength'])
-	    temp_wavelength = np.append(hdulist[1].data['wavelength'], np.full(shape = new_length, fill_value = hdulist[1].data['wavelength'][-1]))
-	    wavelength      = np.append(wavelength, temp_wavelength)
+		#Find loglam, pad it out with the last value if its smaller then the largest array so all are same length
+		#Append it to the loglam array
+		temp_original_data = np.append(hdulist[1].data['original_data'], np.full(shape = new_length, fill_value = hdulist[1].data['original_data'][-1]))
+		original_data      = np.append(original_data, temp_original_data)
 
-	    #Find loglam, pad it out with the last value if its smaller then the largest array so all are same length
-	    #Append it to the loglam array
-	    temp_original_data = np.append(hdulist[1].data['original_data'], np.full(shape = new_length, fill_value = hdulist[1].data['original_data'][-1]))
-	    original_data      = np.append(original_data, temp_original_data)
+		#Find ivar, pad it out with the last value if its smaller then the largest array so all are same length
+		#Append it to the ivar array
+		temp_fierfly_model = np.append(hdulist[1].data['firefly_model'], np.full(shape = new_length, fill_value = hdulist[1].data['firefly_model'][-1]))
+		firefly_model      = np.append(firefly_model, temp_fierfly_model)
 
-	    #Find ivar, pad it out with the last value if its smaller then the largest array so all are same length
-	    #Append it to the ivar array
-	    temp_fierfly_model = np.append(hdulist[1].data['firefly_model'], np.full(shape = new_length, fill_value = hdulist[1].data['firefly_model'][-1]))
-	    firefly_model      = np.append(firefly_model, temp_fierfly_model)
+		temp_flux_error = np.append(hdulist[1].data['flux_error'], np.full(shape = new_length, fill_value = hdulist[1].data['flux_error'][-1]))
+		flux_error = np.append(flux_error, temp_flux_error)
 
-	    temp_flux_error = np.append(hdulist[1].data['flux_error'], np.full(shape = new_length, fill_value = hdulist[1].data['flux_error'][-1]))
-	    flux_error = np.append(flux_error, temp_flux_error)
-	    
-	    """
-	    #spectra_name = np.append(spectra_name, os.path.basename(file))
-	    ra           = np.append(ra, hdulist[0].header['RA'])
-	    dec          = np.append(dec, hdulist[0].header['DEC'])
-	    redshift     = np.append(redshift, hdulist[2].data['Z']) 
-	    vdisp        = np.append(vdisp, hdulist[2].data['VDISP'])
-	    """
-	    hdulist.close()
-	    del hdulist
+		hdulist.close()
+		del hdulist
 
 	#Reshape the arrays so they are 2D
 	wavelength    = np.reshape(wavelength,    (len(file_list), max_length)) 
@@ -99,12 +98,13 @@ def convert_to_fits_table(file_list,
 	array_format = str(max_length) + 'D'
 
 	#Create the columns for the fits table
-	col0 = fits.Column(name ='wavelength',    format = array_format, array = wavelength)
-	col1 = fits.Column(name ='original_data', format = array_format, array = original_data)
-	col2 = fits.Column(name ='firefly_model', format = array_format, array = firefly_model)
-	col3 = fits.Column(name ='flux_error',    format = array_format, array = flux_error)
+	col0 = fits.Column(name ='spectra',       format = '20A',        array = spectra_list)
+	col1 = fits.Column(name ='wavelength',    format = array_format, array = wavelength)
+	col2 = fits.Column(name ='original_data', format = array_format, array = original_data)
+	col3 = fits.Column(name ='firefly_model', format = array_format, array = firefly_model)
+	col4 = fits.Column(name ='flux_error',    format = array_format, array = flux_error)
 	
-	columns = [col0, col1, col2, col3]
+	columns = [col0, col1, col2, col3, col4]
 
 	my_dict = {}
 	i = 0
@@ -115,11 +115,15 @@ def convert_to_fits_table(file_list,
 		hdul = fits.open(file)
 		keys = list(hdul[1].header.keys())
 
+		#print(keys)
+
 		for key in keys:
-			if key != 'redshift':
+			if key != 'redshift' and key != 'IMF':
+				#print(key)
 				pass
 			else:
 				redshift_found = True
+				#print("FOUND")
 
 			if redshift_found:
 				if key in my_dict:
@@ -153,9 +157,10 @@ def convert_to_fits_table(file_list,
 			myformat = '20A'
 
 		try:
-			print(key, my_dict[key])
+			#print(key, my_dict[key])
 			columns.append(fits.Column(name = key, format = myformat, array = my_dict[key]))
 		except:
+			#print("FAILED:", key)
 			pass
 
 	#Add the columns and save the table
@@ -175,13 +180,11 @@ def clean_database(job_id):
 
 	try:
 		job_submission = Job_Submission.objects.get(job_id = job_id)
+		job_id = job_submission.job_id
 		job_submission.delete()
-		print("deleted", job_submission.job_id)
+		print("deleted", job_id)
 	except:
-		print("Failed to delete", job_submission.job_id)
-
-
-
+		print("Failed to delete", job_id)
 
 @background(name = 'firefly', queue = 'my-queue')
 def firefly_run(input_file, 
@@ -205,7 +208,8 @@ def firefly_run(input_file,
 				vdisp        = None,
 				r_instrument = None):
 
-	#warnings.filterwarnings("error")
+	warnings.filterwarnings("ignore")
+	blockPrint()
 
 	#Setup firefly settings
 	firefly = firefly_class.Firefly()
@@ -227,7 +231,17 @@ def firefly_run(input_file,
 
 		path, file = os.path.split(input_file)
 
-		for i in range(3):
+		if os.path.splitext(input_file)[1] == ".fits":
+			hdulist      = fits.open(input_file)
+			n_spectra    = len(hdulist[1].data["spectra"])
+			spectra_list = hdulist[1].data["spectra"]
+			hdulist.close()
+			del hdulist
+		else:
+			spectra_list =[os.path.basename(input_file)]
+			n_spectra    = 1
+
+		for i in range(n_spectra):
 			if os.path.splitext(input_file)[1] == ".ascii":
 				
 				firefly.model_input(redshift     = redshift,
@@ -236,7 +250,11 @@ def firefly_run(input_file,
 									vdisp        = vdisp,
 									r_instrument = r_instrument)
 
-			output_file_i = os.path.join(path, "temp" + str(i) + "_" + file)
+			output_file_i = os.path.join(settings.TEMP_FILES, "temp" + str(i) + "_" + file)
+
+			enablePrint()
+			print(output_file_i, "starting")
+			blockPrint()
 
 			#Run firefly to process the data
 			output = firefly.run(input_file        = input_file, 
@@ -245,18 +263,20 @@ def firefly_run(input_file,
 								 N_angstrom_masked = N_angstrom_masked,
 								 n_spectrum        = i)
 
+			enablePrint()
+			print(output_file_i, "finished")
+			blockPrint()
 			output_list.append(output)
 
-		output_file = os.path.join(path, "output_" + file)
-		convert_to_fits_table(file_list   = output_list,
-							  output_file = output_file)
-
-
+		output_file = os.path.join(settings.OUTPUT_FILES, "output_" + file)
+		convert_to_fits_table(spectra_list = spectra_list,
+							  file_list    = output_list,
+							  output_file  = output_file)
 
 		#Get the Job_Submission and save it to the database.
 		job_submission = Job_Submission.objects.get(job_id = job_id)
 		if os.path.isfile(output_file):
-			job_submission.output_file = output_file
+			job_submission.output_file = os.path.relpath(output_file, settings.MEDIA_ROOT)
 			job_submission.status = "complete"
 		else:
 			job_submission.status = "did_not_converge"
@@ -275,5 +295,11 @@ def firefly_run(input_file,
 		job_submission        = Job_Submission.objects.get(job_id = job_id)
 		job_submission.status = "failed"
 		job_submission.save()
+
+		for file in output_list:
+			try:
+				os.remove(file)
+			except:
+				pass
 
 		clean_database(job_id)

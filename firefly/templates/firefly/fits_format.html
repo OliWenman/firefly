@@ -2,19 +2,35 @@
 
 {% block content %}
 	<head>
-	  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
+
 	</head>
 
-	<br>
+	<body>
+		<h2>
+			File formats
+		</h2>
+		<p>The data needs to be in the format of either an ascii or fits table. </p>
+		<p>
+			<b>Ascii</b> files must consist of two columns, wavelength and flux. The user will then have to manually input values for redshift, velocity dispersion, right ascension, declination and error. Can only process one spectrum per job submittion.
+		</p>
 
-	<b>HDUL1</b>
-	<br>
-	{% for i in HDUL1 %}
-		{{i}}
-		<br>
-
-	{% endfor %}
-
-
+		<p><b>Fits</b> tables are the other file format and prefered method. Fits files are a standard widely used in the astronomy community to store images and tables. Firefly needs the following 8 columns as shown below in HUDL1. Spectra is a string, loglam, flux and ivar are arrays of doubles and the rest are doubles. The advantage of using a fits table is that its very easy to process multiple spectra at the same time such as the example data. Simply add another set of data to the row of the table. </p>
+		<p>
+			<b>HDUL0</b>
+			<br>
+			{% for i in header0 %}
+				{{i}}
+				<br>
+			{% endfor %}
+		</p>
+		<p>
+			<b>HDUL1</b>
+			<br>
+			{% for i in header1 %}
+				{{i}}
+				<br>
+			{% endfor %}
+		</p>
+	</body>
 
 {% endblock %}

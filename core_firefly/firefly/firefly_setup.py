@@ -68,6 +68,9 @@ class firefly_setup:
                         vdips        = None,
                         redshift     = None,
                         r_instrument = None):
+        
+        #wavelength = data[0,:][np.where(np.logical_and(lamb>=min(wave_model)*(1+redshift),lamb<=max(wave_model)*(1+redshift)))]
+
         """
         It reads an SDSS spectrum and provides the input for the firefly fitting routine.
 
@@ -117,8 +120,11 @@ class firefly_setup:
         self.objid = 0
 
         ratio = np.min(abs(10000.*np.log10(np.outer(self.wavelength, 1./maskLambda))), axis=1)
+
+        print(ratio)
         margin = 1.5
         vet_mask = ratio <= margin
+        print(vet_mask)
 
         # masking emission lines
         if lines_mask is None:
@@ -135,7 +141,6 @@ class firefly_setup:
         self.flux[bad_data]     = 0.0
         self.error[bad_data]     = np.max(self.flux) * 99999999999.9
         self.bad_flags[bad_data] = 0
-
         f_blue = lambda lll : (2270.0-1560.0)/(6000.0-3700.0)*lll + 420.0 
         f_red  = lambda lll : (2650.0-1850.0)/(9000.0-6000.0)*lll + 250.0  
         self.r_instrument = np.zeros(len(self.wavelength))

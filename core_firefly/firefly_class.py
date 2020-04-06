@@ -35,6 +35,9 @@ class Firefly():
 		STELLARPOPMODELS_DIR = os.path.join(FF_DIR, 'stellar_population_models')
 		os.environ['STELLARPOPMODELS_DIR'] = STELLARPOPMODELS_DIR
 
+		os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'yes'
+		print(os.environ)
+
 		self.cosmo = co.Planck15
 
 		#specify whether write results
@@ -237,6 +240,7 @@ class Firefly():
 		if self.ageMax is None:
 			self.ageMax = self.cosmo.age(self.redshift).value
 
+		print(self.ageMax)
 		self.restframe_wavelength = self.wavelength / (1.0+self.redshift)
 		self.mask_emissionlines(element_emission_lines = emissionline_list,
 								N_angstrom_masked = N_angstrom_masked)
@@ -272,7 +276,6 @@ class Firefly():
 		spec=setup.firefly_setup(path_to_spectrum  = self.input_file, 
 								 N_angstrom_masked = self. N_angstrom_masked)
 		
-		"""
 		if file_extension == ".ascii":
 			spec.openSingleSpectrum(self.wavelength, 
 									self.flux, 
@@ -284,11 +287,8 @@ class Firefly():
 									self.lines_mask, 
 									self.r_instrument)
 		else:
-			spec.openSDSSSpectrum("sdssMain",
-								  self.lines_mask)
-		"""
-		spec.openWebsiteData(lines_mask = self.lines_mask,
-							 n_spectrum = n_spectrum)
+			spec.openWebsiteData(lines_mask = self.lines_mask,
+								 n_spectrum = n_spectrum)
 		#spec.openMANGASpectrum(data_release, path_to_logcube, path_to_drpall, bin_number, plate_number, ifu_number)
 
 		self.did_not_converge = 0.
@@ -310,15 +310,13 @@ class Firefly():
 			#initiate fit
 			model.fit_models_to_data()
 			tables.append( model.tbhdu )
-			complete_hdus = spm.pyfits.HDUList(tables)
-			if os.path.isfile(output_file):
-				os.remove(output_file)		
-			complete_hdus.writeto(output_file)
 
 		except (ValueError):
-			tables.append( model.create_dummy_hdu() )
-			#self.did_not_converged +=1
+			tables.append(model.create_dummy_hdu())
 			print('did not converge')
+
+		complete_hdus = spm.pyfits.HDUList(tables)
+		complete_hdus.writeto(output_file, overwrite=True)
 
 		print()
 		print ("Done... total time:", int(time.time()-t0) ,"seconds.")

@@ -1,27 +1,155 @@
 {% extends 'firefly/base.html' %}
 
 {% block content %}
-	<br/>
+	<head>
+		<link rel="stylesheet" type="text/css" href = "/static/firefly/loading_symbol.css" />
+
+		<meta http-equiv="refresh" content="25" />
+	</head>
 	<body>
-		<meta http-equiv="refresh" content="15" />
+		<h1 class="loading">Processing your submittion</h1>
 
-		<header>Submission sent for <b>processing!</b></header>
+		<p>Your ticket number is <b>{{job_id}}</b></p>
 		
-		Your ticket number is <b>{{job_id}}</b>
+		<p>
+			Queue length: <b>{{queue}}</b>
+    	</p>
+    	<h3>
+    		Inputs:
+    	</h3>
+    	<table>
+    		<tr>
+    			<td>
+    				Total spectra
+    			</td>
+    			<td>
+    				: {{ plot|length }}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Minimun age
+    			</td>
+    			<td>
+    				: {{ageMin}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Maximum age
+    			</td>
+    			<td>
+    				: {{ageMax}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Redshift range
+    			</td>
+    			<td>
+    				: {{Zmin}} - {{Zmax}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Flux units
+    			</td>
+    			<td>
+    				: {{flux_units}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Model
+    			</td>
+    			<td>
+    				: {{model}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				IMF
+    			</td>
+    			<td>
+    				: {{imf}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Wave medium
+    			</td>
+    			<td>
+    				: {{wave_medium}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Downgrade models  
+    			</td>
+    			<td>
+    				: {{downgrade_models}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Width of masking
+    			</td>
+    			<td>
+    				: {{width_masking}}
+    			</td>
+    		</tr>
+    		<tr>
+    			<td>
+    				Emission lines masked
+    			</td>
+    			<td>
+    				: {{emission_lines}}
+    			</td>
+    		</tr>
+
+    	</table>
+		<style type="text/css">
+		    th, td {
+		      border-bottom: 1px solid #ddd;
+		      border-top: 1px solid #ddd;
+		    }
+		 </style>
 		<br>
-		Queue length: <b>{{queue}}</b>
-		<div id="processing_message" >
-			<span>This may take several minutes... </span>
-			<span class = "loader"></span>   
-		</div>
-
-		<link rel="stylesheet" type="text/css" href = "/static/firefly/load_message.css" />
-
-		{% for myplot in plot %}
-			<div>
-				<img src="data:image/png;base64,{{ myplot|safe }}" style="display: block;">
-			</div>
-		{% endfor %}
+		 <div class="wrapper1">
+    <div class="div1"></div>
+  </div>
+  <div class="wrapper2">
+    <div class="div2">
+      <table>
+        <tr style="size: 5; text-align: center;">
+          <th><h2>No.</h2></th>
+          <th><h2>Spectra</h2></th>
+          <th><h2>Calculated values</h2></th>
+        </tr>
+        {% for myplot in plot %}
+        <tr>
+          <td valign="top">
+            {{forloop.counter}}.
+          </td>
+          <td>
+            <img src="data:image/png;base64,{{ myplot|safe }}" >
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
+  <script type="text/javascript">
+    $(function(){
+      $(".wrapper1").scroll(function(){
+        $(".wrapper2").scrollLeft($(".wrapper1").scrollLeft());
+      });
+      $(".wrapper2").scroll(function(){
+        $(".wrapper1").scrollLeft($(".wrapper2").scrollLeft());
+      });
+    });
+  </script>
 	</body>
 
 {% endblock %}
