@@ -8,7 +8,7 @@
 /* Tooltip text */
 .tooltip .tooltiptext {
   visibility: hidden;
-  width: 150px;
+  width: 170px;
   background-color: black;
   color: #fff;
   text-align: center;
@@ -20,7 +20,7 @@
   z-index: 9999999;
 
   top: -15px;
-  left: -155px;
+  left: -180px;
 
   opacity: 0;
   transition: opacity 0.2s;

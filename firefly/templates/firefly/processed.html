@@ -11,7 +11,6 @@
   </script>
   <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML"></script>
   {% load index %}
-  <br/>
 
   <head>
     <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
@@ -19,7 +18,7 @@
 
   </head>
 
-  <section>
+  <body>
     <h1>Finished processing!</h1> 
     <p>Thank you for using Firefly.</p>
 
@@ -45,7 +44,7 @@
         </tr>
         <tr>
           <td>
-            Minimun age
+            Minimum age
           </td>
           <td>
             : {{ageMin}}
@@ -125,63 +124,63 @@
         </tr>
 
       </table>
-  </section>
 
-  <style type="text/css">
-    th, td {
-      border-bottom: 1px solid #ddd;
-      border-top: 1px solid #ddd;
-    }
-  </style>
-  <br>
+    <style type="text/css">
+      th, td {
+        border-bottom: 1px solid #ddd;
+        border-top: 1px solid #ddd;
+      }
+    </style>
+    <br>
 
-  <div class="wrapper1">
-    <div class="div1"></div>
-  </div>
-  <div class="wrapper2">
-    <div class="div2">
-      <table>
-        <tr style="size: 5; text-align: center;">
-          <th><h2>No.</h2></th>
-          <th><h2>Spectra</h2></th>
-          <th><h2>Calculated values</h2></th>
-        </tr>
-        {% for myplot in plot %}
-        <tr>
-          <td valign="top">
-            {{forloop.counter}}.
-          </td>
-          <td>
-            <img src="data:image/png;base64,{{ myplot|safe }}" >
-          </td>
-
-          <td valign="top" style="white-space: nowrap;">
-            <ul><font size="5" style="line-height: 2.5;">
-              {% if converged|index:forloop.counter0 %}
-                <li>\$ \left[ Z \over H \right] \$: {{ metallicity|index:forloop.counter0 }} </li>
-                <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{ mass|index:forloop.counter0 }} </li>
-                <li><i> Age </i>: {{ age|index:forloop.counter0 }} </li>
-                <li>\$ E(B-V) \$: {{ light|index:forloop.counter0 }}</li>
-              {% else %}
-                <li><font color="red"><b>Did not converge.</b></font></li>
-              {% endif %}
-            </ul></font>
-          </td>
-
-        </tr>
-        {% endfor %}
-      </table>
+    <div class="wrapper1">
+      <div class="div1"></div>
     </div>
-  </div>
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
-  <script type="text/javascript">
-    $(function(){
-      $(".wrapper1").scroll(function(){
-        $(".wrapper2").scrollLeft($(".wrapper1").scrollLeft());
+    <div class="wrapper2">
+      <div class="div2">
+        <table>
+          <tr style="size: 5; text-align: center;">
+            <th><h2>No.</h2></th>
+            <th><h2>Spectra</h2></th>
+            <th><h2>Calculated values</h2></th>
+          </tr>
+          {% for myplot in plot %}
+          <tr>
+            <td valign="top">
+              {{forloop.counter}}.
+            </td>
+            <td>
+              <img src="data:image/png;base64,{{ myplot|safe }}" >
+            </td>
+
+            <td valign="top" style="white-space: nowrap;">
+              <ul><font size="5" style="line-height: 2.5;">
+                {% if converged|index:forloop.counter0 %}
+                  <li>\$ \left[ Z \over H \right] \$: {{ metallicity|index:forloop.counter0 }} </li>
+                  <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{ mass|index:forloop.counter0 }} </li>
+                  <li><i> Age </i>: {{ age|index:forloop.counter0 }} </li>
+                  <li>\$ E(B-V) \$: {{ light|index:forloop.counter0 }}</li>
+                {% else %}
+                  <li><font color="red"><b>Did not converge.</b></font></li>
+                {% endif %}
+              </ul></font>
+            </td>
+
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+    </div>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
+    <script type="text/javascript">
+      $(function(){
+        $(".wrapper1").scroll(function(){
+          $(".wrapper2").scrollLeft($(".wrapper1").scrollLeft());
+        });
+        $(".wrapper2").scroll(function(){
+          $(".wrapper1").scrollLeft($(".wrapper2").scrollLeft());
+        });
       });
-      $(".wrapper2").scroll(function(){
-        $(".wrapper1").scrollLeft($(".wrapper2").scrollLeft());
-      });
-    });
-  </script>
+    </script>
+  </body>
 {% endblock %}

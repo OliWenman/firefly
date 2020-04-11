@@ -8,6 +8,7 @@ from django.core.files.storage import FileSystemStorage
 from django.conf import settings
 from django.utils import timezone
 from django.db.models import Q
+from django.core.exceptions import ValidationError
 
 #Import seperate background_tasks, allows for processing to be done in background
 #and not risk a timeout requesting a page while processing.
@@ -21,7 +22,9 @@ from .forms import FireFlySettings_Form, SEDform, SEDfileform, Emissionlines_For
 
 #Import firefly
 from core_firefly import firefly_class
+from core_firefly import create_fits_table
 from core_firefly.firefly_wrapper import firefly_run
+from core_firefly.emission_lines import emissionline_choices
 
 import numpy as np
 import random
@@ -31,6 +34,7 @@ import warnings
 from io import BytesIO
 import base64
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 from astropy.io import fits
 import sys, traceback
@@ -68,34 +72,105 @@ def home(request):
 		#If the forms are valid, process the data
 		if settings_form.is_valid() and sedfile_form.is_valid() and additional_inputs.is_valid() and emissionlines_form.is_valid():
 
+			#Get the users input_files
+			userfile_list = request.FILES.getlist('input_file')
+			file_list     = []
+
+			#check_file_extension test, make sure all files are .fits or its a single .ascii file
+			try:
+				filetype = create_fits_table.check_file_extensions(userfile_list)
+			except Exception as e:
+				file_error = str(e)
+				return render(request, 
+							  'firefly/home2.html', 
+							  {'form':settings_form, 
+							   'SED':sedfile_form,
+							   'emissionlines_form' : emissionlines_form,
+							   'ascii_additional_inputs': additional_inputs,
+							   'file_error': file_error})
+
 			#Use the date and time to make unique job_id via scrambling the digits.
 			time_stamp = time.strftime("%Y%m%d%H%M%S")
 			job_id = int(''.join(random.sample(time_stamp,len(time_stamp))))
 
-			#Get the SED input_file
-			sed_file = request.FILES.get('input_file')
-			
-			#Create a new input_file name to make it unique.
-			file_extension = os.path.splitext(sed_file.name)[1]	
+			file_error = None
 
-			if file_extension == ".ascii":
-				n = -6
-			elif file_extension == ".fits":
-				n = -5		
+			#What to do with a list of fits files. Further tests to make sure in correct format and then
+			#combine them into a single file.
+			if filetype == ".fits":
 
-			sed_file_name = sed_file.name[0:n] + "_" +str(job_id) + file_extension
-			sed_file_path = os.path.join(settings.INPUT_FILES, sed_file_name)
+				#Loop through the list of files
+				for file in userfile_list:
 
-			#Save the input_file to disk
-			file_destination = open(sed_file_path, 'wb+')
-			for chunk in sed_file.chunks():
-				file_destination.write(chunk)
-			file_destination.close()
+					#Make sure the files are unique by assigning them a unique number
+					temp_fitsname = file.name[0:-5] + "_" +str(job_id) + ".fits"
+					temp_fitspath = os.path.join(settings.TEMP_FILES, temp_fitsname)
 
-			hdulist      = fits.open(sed_file_path)
-			n_spectra    = len(hdulist[1].data["spectra"])
-			hdulist.close()
-		
+					#Save the files to disk as library cannot read .fits files from memory 
+					with open(temp_fitspath, 'wb+') as file_destination:
+						for chunk in file.chunks():
+							file_destination.write(chunk)
+
+					file_list.append(temp_fitspath)
+
+				#Create a filename for that contains the combined data of all the files for Firefly
+				input_file = os.path.join(settings.INPUT_FILES, "input_" + str(job_id) + ".fits")
+
+				try:
+					#Combine the data and write to the input_file
+					create_fits_table.create_fitstable(input_files = file_list, output_file= input_file)
+
+				#Catch any exceptions if files aren't comptabile.
+				except Exception as e:
+					file_error = str(e)
+					print(str(e))
+
+				#Remove the temp files as no longer needed as combined the data to one file
+				finally:
+					for file in file_list:
+						os.remove(file)
+
+			#What to do with a single ascii file
+			elif filetype == ".ascii":
+
+				#Try to load the data in to test if useable.
+				try:
+					np.loadtxt(userfile_list[0])
+
+					#Add a unique id to the filename
+					sed_file_name = userfile_list[0].name[0:-6] + "_" +str(job_id) + ".ascii"
+					input_file = os.path.join(settings.INPUT_FILES, sed_file_name)
+
+					#Save the file to disk
+					with open(input_file, 'wb+') as file_destination:
+						for chunk in userfile_list[0].chunks():
+							file_destination.write(chunk)
+
+					file_list.append(input_file)
+
+				#Catch exceptions of a bad .ascii file
+				except Exception as e:
+
+					print(str(e))
+					file_error = "'" + userfile_list[0].name + "' file is corrupt."
+
+			#If an error occured, display it back to the user. 
+			if file_error:
+				return render(request, 
+							  'firefly/home2.html', 
+							  {'form':settings_form, 
+							   'SED':sedfile_form,
+							   'emissionlines_form' : emissionlines_form,
+							   'ascii_additional_inputs': additional_inputs,
+							   'file_error': file_error})
+
+			#Read the number of spectra to be processed
+			try:
+				with fits.open(input_file) as hdulist:
+					n_spectra = len(hdulist[1].data["spectra"])
+			except:
+				n_spectra = 1
+
 			#Get the variables from the form.
 			ageMin, ageMax, ZMin, ZMax, flux_units = settings_form.check_values(ageMin     = request.POST['ageMin'],
 																				 ageMax     = request.POST['ageMax'],
@@ -103,9 +178,8 @@ def home(request):
 																				 ZMax       = request.POST['ZMax'],
 																				 flux_units = request.POST['flux_units'])
 
-			#print("ageMin =",ageMin, "ageMax =", ageMax, "ZMin =", ZMin, "ZMax = ", ZMax, "flux_units =", flux_units)
 			ageMin			 = float(request.POST['ageMin'])
-			print(ageMin)
+
 			#ageMax           = request.POST['ageMax']
 			ZMin             = float(request.POST['ZMin'])
 			ZMax             = float(request.POST['ZMax'])
@@ -123,13 +197,37 @@ def home(request):
 
 			emissionlines = []
 			emission_lines_str = ""
+
+			#Loop through which emission lines were selected by user
+			"""
 			for i in range(emissionlines_form.max_emissionlines):
 				if request.POST['Emission_line_' + str(i +1)] != '':
+
+					#Make the emission lines also into a string
 					emissionlines.append(request.POST['Emission_line_' + str(i +1)])
-					emission_lines_str = emission_lines_str + ", "+ request.POST['Emission_line_' + str(i +1)]
+					if i == 0:
+						comma = ''
+					else:
+						comma = ', '
+
+					emission_lines_str = emission_lines_str + comma + request.POST['Emission_line_' + str(i +1)]
+			"""
+			for i in range(len(emissionline_choices)):
+				
+				if request.POST.get(emissionline_choices[i][0]):
+
+					emissionlines.append(emissionline_choices[i][0])
+
+					if i == 0:
+						comma = ''
+					else:
+						comma = ', '
+
+					emission_lines_str = emission_lines_str + comma + emissionline_choices[i][0]
+
 			N_angstrom_masked = float(request.POST['N_angstrom_masked'])
 
-			#ASCII inputs
+			#ascii inputs
 			try:
 				redshift     = float(request.POST['redshift'])
 				ra           = float(request.POST['ra'])
@@ -139,32 +237,19 @@ def home(request):
 			except(ValueError):
 				redshift = ra = dec = vdisp = r_instrument = None
 
+			#Model libs as a string for user
 			if model_libs == "MILES":
 				temp_model_libs = model_libs + " - "+ models_key
 			else:
 				temp_model_libs = model_libs
-		
-			"""
-			if ageMax == None:
-				if file_extension == ".fits":
-					hdul = fits.open(sed_file_path)
-					true_redshift = hdul[1].data['Z']
-					hdul.close()
-				else:
-					true_redshift = redshift
-				ageMax = co.Planck15.age(true_redshift).value
-				print(ageMax)
-				print(true_redshift)
-			else:
-				ageMax = float(ageMax)
-			"""
+
 
 			place_holder = 0
 
 			#Create Job_Submission instance to save to database
 			job_submission = Job_Submission.objects.create(job_id     = job_id,
 														   status     = 'queued',
-														   input_file = os.path.relpath(sed_file_path, settings.MEDIA_ROOT),
+														   input_file = os.path.relpath(input_file, settings.MEDIA_ROOT),
 														   n_spectra  = n_spectra,
 														   ageMin     = ageMin,
 														   ageMax     = place_holder,
@@ -178,31 +263,9 @@ def home(request):
 														   width_masking = N_angstrom_masked,
 														   emission_lines = emission_lines_str)  
 			#Run firefly task in the background
-			p = Process(target = firefly_run, args = (sed_file_path, 
-													  job_id,
-													  ageMin,
-													  ageMax,
-													  ZMin,
-													  ZMax,
-													  flux_units,
-													  0,
-													  models_key,
-													  model_libs,
-													  imfs,
-													  wave_medium,
-													  downgrade_models,
-													  emissionlines,
-													  N_angstrom_masked,
-													  #Additional ascii file inputs
-													  redshift,
-													  ra,
-													  dec,
-													  vdisp,
-													  r_instrument))
-			p.run()
-
-			"""
-			firefly_run(input_file        = sed_file_path, 
+			
+			#Run the background task of firefly
+			firefly_run(input_file        = input_file, 
 						job_id            = job_id,
 						#Model inputs
 						ageMin            = ageMin,
@@ -224,9 +287,10 @@ def home(request):
 						dec               = dec,
 						vdisp             = vdisp,
 						r_instrument      = r_instrument)
-			"""
+			
 
 			#Use HttpResponseRedirect when submitting forms to stop resubmitting
+			#Display a processing page
 			return HttpResponseRedirect(reverse('firefly:processed', args=(job_id,)))
 
 		#Otherwise redirect back to form page with the forms that were used, display errors to user
@@ -252,7 +316,6 @@ def home(request):
 				 'emissionlines_form' : emissionlines_form,
 				 'ascii_additional_inputs': additional_inputs})
 
-import matplotlib as mpl
 def processed(request, job_id):
 
 	mpl.use('Agg')
@@ -425,14 +488,23 @@ def processed(request, job_id):
 				n_spectra  = 1
 			else:
 
-				hdul = fits.open(job_submission.input_file.path)
+				with fits.open(job_submission.input_file.path) as hdul:
 
-				n_spectra = len(hdul[1].data['flux'])
+					try:
+						n_spectra = len(hdul[1].data['flux'])
+						flux_array       = hdul[1].data['flux']
+						wavelength_array = 10**hdul[1].data['loglam']
+						spectra_array    = hdul[1].data['spectra']
+						fits_table = True
 
-				flux_array       = hdul[1].data['flux']
-				wavelength_array = 10**hdul[1].data['loglam']
-				spectra_array    = hdul[1].data['spectra']
-				hdul.close()
+					except:
+						n_spectra        = 1
+						flux_array       = hdul[1].data['flux']
+						wavelength_array = 10**hdul[1].data['loglam']
+						spectra_array    = job_submission.input_file.name
+
+						fits_table = False
+
 
 			graphic_array = []
 			for i in range(n_spectra):
@@ -442,11 +514,19 @@ def processed(request, job_id):
 				fig = plt.figure(figsize = plot_size)
 
 				if file_extension == ".fits":
-					left  = wavelength_array[i][0]
-					right = wavelength_array[i][-1]
-					wavelength = wavelength_array[i]
-					flux = flux_array[i]
-					spectra = spectra_array[i]
+
+					if fits_table:
+						left  = wavelength_array[i][0]
+						right = wavelength_array[i][-1]
+						wavelength = wavelength_array[i]
+						flux = flux_array[i]
+						spectra = spectra_array[i]
+					else:
+						left  = wavelength_array[0]
+						right = wavelength_array[-1]
+						wavelength = wavelength_array
+						flux = flux_array
+						spectra = spectra_array
 				else:
 					left  = wavelength[0]
 					right = wavelength[-1]
@@ -496,6 +576,11 @@ def processed(request, job_id):
 			if queue == 0 and found:
 				queue = 'You are next - processing your data!'
 
+			try:
+				status = int(job_submission.status)
+			except(ValueError):
+				status = 0
+
 			return render(request, 
 						  'firefly/processing.html', 
 						  {'job_id':          job_id, 
@@ -511,7 +596,8 @@ def processed(request, job_id):
 						  'downgrade_models': job_submission.downgrade_models,
 						  'width_masking':    job_submission.width_masking,
 						  'emission_lines':   job_submission.emission_lines,
-						  'queue'  :          queue})
+						  'queue'  :          queue,
+						  'status' :          status})
 	else:
 		return render(request, 'firefly/not_found.html', {'job_id': job_id})
 

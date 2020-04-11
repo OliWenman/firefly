@@ -65,7 +65,7 @@ class firefly_setup:
                         n_spectrum   = 0,
                         ra           = None,
                         dec          = None,
-                        vdips        = None,
+                        vdisp        = None,
                         redshift     = None,
                         r_instrument = None):
         
@@ -109,9 +109,19 @@ class firefly_setup:
             self.redshift = redshift
             self.vdisp    = vdisp
 
-            self.wavelength = 10**hdulist[1].data['loglam'][n_spectrum]
-            self.flux       = hdulist[1].data['flux'][n_spectrum]
-            self.error      = hdulist[1].data['ivar'][n_spectrum]**(-0.5)
+            data = np.loadtxt(self.path_to_spectrum, unpack=True)
+            lamb = data[0,:]
+
+            self.wavelength = data[0,:]
+            self.flux = data[1,:]
+            self.error = self.flux*0.1
+            #self.restframe_wavelength = self.wavelength/(1+self.redshift)
+
+            #instrumental resolution
+            self.r_instrument = np.zeros(len(self.wavelength))
+
+            for wi, w in enumerate(self.wavelength):
+                self.r_instrument[wi] = r_instrument#600#self.r_instrument_value
 
         
         self.restframe_wavelength = self.wavelength / (1.0+self.redshift)
@@ -121,10 +131,10 @@ class firefly_setup:
 
         ratio = np.min(abs(10000.*np.log10(np.outer(self.wavelength, 1./maskLambda))), axis=1)
 
-        print(ratio)
         margin = 1.5
         vet_mask = ratio <= margin
-        print(vet_mask)
+        print(len(lines_mask))
+        print(len(self.wavelength))
 
         # masking emission lines
         if lines_mask is None:
@@ -142,7 +152,8 @@ class firefly_setup:
         self.error[bad_data]     = np.max(self.flux) * 99999999999.9
         self.bad_flags[bad_data] = 0
         f_blue = lambda lll : (2270.0-1560.0)/(6000.0-3700.0)*lll + 420.0 
-        f_red  = lambda lll : (2650.0-1850.0)/(9000.0-6000.0)*lll + 250.0  
+        f_red  = lambda lll : (2650.0-1850.0)/(9000.0-6000.0)*lll + 250.0 
+
         self.r_instrument = np.zeros(len(self.wavelength))
         self.r_instrument[(self.wavelength<6000.)] = f_blue(self.wavelength[(self.wavelength<6000.)])
         self.r_instrument[(self.wavelength>=6000.)] = f_red(self.wavelength[(self.wavelength>=6000.)])        

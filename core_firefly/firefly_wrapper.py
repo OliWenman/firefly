@@ -31,18 +31,20 @@ import sys, os
 
 # Disable
 def blockPrint():
-    sys.stdout = open(os.devnull, 'w')
+    #sys.stdout = open(os.devnull, 'w')
+    pass
 
 # Restore
 def enablePrint():
-    sys.stdout = sys.__stdout__
+    #sys.stdout = sys.__stdout__
+    pass
 
 def convert_to_fits_table(spectra_list,
 						  file_list,
 						  output_file):
 
 	#print("Converting", file_list, "to a fits table called", output_file)
-	n_spectra = 3
+	n_spectra = len(file_list)
 
 	wavelength    = np.array([])
 	original_data = np.array([])
@@ -208,23 +210,10 @@ def firefly_run(input_file,
 				vdisp        = None,
 				r_instrument = None):
 
+	t0 = time.time()
 	warnings.filterwarnings("ignore")
 	blockPrint()
 
-	#Setup firefly settings
-	firefly = firefly_class.Firefly()
-
-	firefly.settings(ageMin           = ageMin,
-					 ageMax			  = ageMax,
-					 ZMin             = ZMin,
-					 ZMax             = ZMax,
-					 flux_units       = flux_units,
-					 models_key       = models_key,
-					 model_libs       = model_libs,
-					 imfs             = imfs,
-					 data_wave_medium = wave_medium,
-					 downgrade_models = downgrade_models)
-	
 	try:
 
 		output_list = []
@@ -233,15 +222,41 @@ def firefly_run(input_file,
 
 		if os.path.splitext(input_file)[1] == ".fits":
 			hdulist      = fits.open(input_file)
-			n_spectra    = len(hdulist[1].data["spectra"])
-			spectra_list = hdulist[1].data["spectra"]
-			hdulist.close()
-			del hdulist
+			with fits.open(input_file) as hdulist:
+
+				try:
+					n_spectra    = len(hdulist[1].data["spectra"])
+					spectra_list = hdulist[1].data["spectra"]
+
+				except:
+					spectra_list =[os.path.basename(input_file)]
+					n_spectra    = 1
+
 		else:
 			spectra_list =[os.path.basename(input_file)]
 			n_spectra    = 1
 
+		#Get the Job_Submission and save it to the database.
+		job_submission = Job_Submission.objects.get(job_id = job_id)
+		job_submission.status = "0"
+
 		for i in range(n_spectra):
+
+			#Setup firefly settings
+			firefly = firefly_class.Firefly()
+
+			firefly.settings(ageMin           = ageMin,
+							 ageMax			  = ageMax,
+							 ZMin             = ZMin,
+							 ZMax             = ZMax,
+							 flux_units       = flux_units,
+							 models_key       = models_key,
+							 model_libs       = model_libs,
+							 imfs             = imfs,
+							 data_wave_medium = wave_medium,
+							 downgrade_models = downgrade_models)
+	
+
 			if os.path.splitext(input_file)[1] == ".ascii":
 				
 				firefly.model_input(redshift     = redshift,
@@ -267,25 +282,26 @@ def firefly_run(input_file,
 			print(output_file_i, "finished")
 			blockPrint()
 			output_list.append(output)
+			progress = int(((i + 1)/n_spectra)*100)
+			job_submission.status = str(progress)
+			job_submission.save()
 
 		output_file = os.path.join(settings.OUTPUT_FILES, "output_" + file)
 		convert_to_fits_table(spectra_list = spectra_list,
 							  file_list    = output_list,
 							  output_file  = output_file)
 
-		#Get the Job_Submission and save it to the database.
-		job_submission = Job_Submission.objects.get(job_id = job_id)
 		if os.path.isfile(output_file):
 			job_submission.output_file = os.path.relpath(output_file, settings.MEDIA_ROOT)
 			job_submission.status = "complete"
-		else:
-			job_submission.status = "did_not_converge"
 		job_submission.save()
 
 		#After completion, remove files from database after certain amount of time
 		#so we don't have to store files.
 		if clean_db:
 			clean_database(job_id)
+
+		print (job_submission.job_id, ": total time =", int(time.time()-t0)/60 ,"minutess.")
 			
 	except:
 
@@ -303,3 +319,4 @@ def firefly_run(input_file,
 				pass
 
 		clean_database(job_id)
+		print (job_submission.job_id, ": total time =", int(time.time()-t0)/60 ,"minutess.")

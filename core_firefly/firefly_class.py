@@ -21,6 +21,7 @@ import subprocess
 
 import core_firefly.firefly.firefly_setup as setup
 import core_firefly.firefly.firefly_models as spm
+from core_firefly.emission_lines import emissionline_choices, emission_dict
 
 from astropy.io import fits
 
@@ -35,15 +36,22 @@ class Firefly():
 		STELLARPOPMODELS_DIR = os.path.join(FF_DIR, 'stellar_population_models')
 		os.environ['STELLARPOPMODELS_DIR'] = STELLARPOPMODELS_DIR
 
-		os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'yes'
-		print(os.environ)
-
 		self.cosmo = co.Planck15
 
 		#specify whether write results
 		self.write_results    = True
 		self.override_results = True
 		self.N_angstrom_masked = 20
+
+		self.spec   = None
+		self.model  = None
+		self.prihdu = None
+		self.prihdr = None
+		self.tables = None
+
+		self.r_instrument_value = None
+
+
 
 
 	def set_enviromment_var(var: str, path: str):
@@ -126,26 +134,6 @@ class Firefly():
 		"""
 		self.N_angstrom_masked = N_angstrom_masked
 
-		#Dictionary of corrosponding elements to their emission lines
-		emission_dict = {'HeII' : (3202.15, 4685.74),
-						 'NeV'  : (3345.81, 3425.81),
-						 'OII'  : (3726.03, 3728.73),
-						 'NeIII': (3868.69, 3967.40),
-						 'H5'   : 3889.05,
-						 'He'   : 3970.07,
-						 'Hd'   : 4101.73,
-						 'Hg'   : 4340.46,
-						 'OIII' : (4363.15, 4958.83, 5006.77),
-						 'ArIV' : (4711.30, 4740.10),
-						 'Hb'   : 4861.32,
-						 'NI'   : (5197.90, 5200.39),
-						 'HeI'  : 5875.60,
-						 'OI'   : (6300.20, 6363.67),
-						 'NII'  : (6547.96, 6583.34),
-						 'Ha'   : 6562.80,
-						 'SII'  : (6716.31, 6730.68),
-						 'ArIII': 7135.67}
-
 		#Create an array full of booleans equal to False, same size as the restframe_wavelength
 		self.lines_mask = np.full((len(self.restframe_wavelength)), False, dtype=bool) 
 
@@ -179,6 +167,7 @@ class Firefly():
 					self.lines_mask = (temp_lines_mask | self.lines_mask)
 
 			else:
+				print(element_emission_lines[i])
 				raise KeyError
 
 		print(self.lines_mask)
@@ -205,15 +194,16 @@ class Firefly():
 		#input file with path to read in wavelength, flux and flux error arrays
 		#the example is for an ascii file with extension 'ascii'
 		self.input_file = input_file
+		self.output_file = output_file
 
-		file_extension = os.path.splitext(input_file)[1]			
+		file_extension = os.path.splitext(self.input_file)[1]			
 		if file_extension == ".ascii":
 
 			data = np.loadtxt(self.input_file, unpack=True)
 			lamb = data[0,:]
 
-			self.wavelength = data[0,:][np.where(lamb>3600*(1+self.redshift))]
-			self.flux = data[1,:][np.where(lamb>3600*(1+self.redshift))]
+			self.wavelength = data[0,:]#[np.where(lamb>3600*(1+self.redshift))]
+			self.flux = data[1,:]#[np.where(lamb>3600*(1+self.redshift))]
 			self.error = self.flux*0.1
 			#self.restframe_wavelength = self.wavelength/(1+self.redshift)
 
@@ -224,28 +214,40 @@ class Firefly():
 				self.r_instrument[wi] = self.r_instrument_value
 
 		else:
-			hdul = fits.open(input_file)
 
-			self.flux       = hdul[1].data['flux'][n_spectrum]
-			self.wavelength = 10**hdul[1].data['loglam'][n_spectrum]
-			self.ivar       = hdul[1].data['ivar'][n_spectrum]
+			with fits.open(self.input_file) as hdul:
 
-			self.redshift = hdul[1].data['Z'][n_spectrum]
-			self.vdisp    = hdul[1].data['vdisp'][n_spectrum]
-			self.ra       = hdul[1].data['ra'][n_spectrum]
-			self.dec      = hdul[1].data['dec'][n_spectrum]
+				try:
+					self.flux       = hdul[1].data['flux'][n_spectrum]
+					self.wavelength = 10**hdul[1].data['loglam'][n_spectrum]
+					self.ivar       = hdul[1].data['ivar'][n_spectrum]
 
-			hdul.close()
+					self.redshift = hdul[1].data['Z'][n_spectrum]
+					self.vdisp    = hdul[1].data['vdisp'][n_spectrum]
+					self.ra       = hdul[1].data['ra'][n_spectrum]
+					self.dec      = hdul[1].data['dec'][n_spectrum]
+				except:
+					self.flux       = hdul[1].data['flux']
+					self.wavelength = 10**hdul[1].data['loglam']
+					self.ivar       = hdul[1].data['ivar']
+
+					self.redshift = hdul[2].data['Z'][0]
+					self.vdisp    = hdul[2].data['vdisp'][0]
+					try:
+						self.ra  = hdul[2].data['ra'][0]
+						self.dec = hdul[2].data['dec'][0]
+					except:
+						self.ra  = hdul[2].data['plug_ra'][0]
+						self.dec = hdul[2].data['plug_dec'][0]
 
 		if self.ageMax is None:
 			self.ageMax = self.cosmo.age(self.redshift).value
 
-		print(self.ageMax)
 		self.restframe_wavelength = self.wavelength / (1.0+self.redshift)
 		self.mask_emissionlines(element_emission_lines = emissionline_list,
 								N_angstrom_masked = N_angstrom_masked)
 
-		t0 = time.time()
+		self.t0 = time.time()
 
 		"""
 		if file_extension == ".ascii":
@@ -257,69 +259,88 @@ class Firefly():
 		"""
 
 		print()
-		print( 'Output file: ', output_file                 )
+		print( 'Output file: ', self.output_file                 )
 		print()
-		prihdr              = spm.pyfits.Header()
-		prihdr['FILE']      = os.path.basename(output_file)
-		prihdr['MODELS']	= self.models_key
-		prihdr['FITTER']	= "FIREFLY"	
-		prihdr['AGEMIN']	= str(self.ageMin)		
-		prihdr['AGEMAX']	= str(self.ageMax)
-		prihdr['ZMIN']	    = str(self.ZMin)
-		prihdr['ZMAX']	    = str(self.ZMax)
-		prihdr['redshift']	= self.redshift
-		prihdr['HIERARCH age_universe']	= np.round(self.ageMax, 3)
-		prihdu = spm.pyfits.PrimaryHDU(header=prihdr)
-		tables = [prihdu]
+		if not self.prihdr:
+			self.prihdr         = spm.pyfits.Header()
+		self.prihdr['FILE']     = os.path.basename(self.output_file)
+		self.prihdr['MODELS']	= self.models_key
+		self.prihdr['FITTER']	= "FIREFLY"	
+		self.prihdr['AGEMIN']	= str(self.ageMin)		
+		self.prihdr['AGEMAX']	= str(self.ageMax)
+		self.prihdr['ZMIN']	    = str(self.ZMin)
+		self.prihdr['ZMAX']	    = str(self.ZMax)
+		self.prihdr['redshift']	= self.redshift
+		self.prihdr['HIERARCH age_universe']	= np.round(self.ageMax, 3)
+		if not self.prihdu:
+			self.prihdu = spm.pyfits.PrimaryHDU(header=self.prihdr)
+		if not self.tables:
+			self.tables = [self.prihdu]
 
 		#define input object to pass data on to firefly modules and initiate run
-		spec=setup.firefly_setup(path_to_spectrum  = self.input_file, 
-								 N_angstrom_masked = self. N_angstrom_masked)
-		
+		if not self.spec:
+			self.spec=setup.firefly_setup(path_to_spectrum  = self.input_file, 
+										  N_angstrom_masked = self. N_angstrom_masked)
+		"""
 		if file_extension == ".ascii":
-			spec.openSingleSpectrum(self.wavelength, 
-									self.flux, 
-									self.error, 
-									self.redshift, 
-									self.ra, 
-									self.dec, 
-									self.vdisp, 
-									self.lines_mask, 
-									self.r_instrument)
+			self.spec.openSingleSpectrum(self.wavelength, 
+										 self.flux, 
+										 self.error, 
+										 self.redshift, 
+										 self.ra, 
+										 self.dec, 
+										 self.vdisp, 
+										 self.lines_mask, 
+										 self.r_instrument)
 		else:
-			spec.openWebsiteData(lines_mask = self.lines_mask,
-								 n_spectrum = n_spectrum)
+			try:
+				self.spec.openWebsiteData(lines_mask = self.lines_mask,
+									 	  n_spectrum = n_spectrum)
+			except:
+				self.spec.openSDSSSpectrum(survey = 'sdssMain',
+                         				   lines_mask = self.lines_mask)
+		"""
+		self.spec.openWebsiteData(lines_mask   = self.lines_mask,
+								  n_spectrum   = n_spectrum,
+								  ra           = self.ra,
+								  dec          = self.dec,
+								  vdisp        = self.vdisp,
+								  redshift     = self.redshift,
+								  r_instrument = self.r_instrument_value)		
+
 		#spec.openMANGASpectrum(data_release, path_to_logcube, path_to_drpall, bin_number, plate_number, ifu_number)
 
 		self.did_not_converge = 0.
 		try :
 			#prepare model templates
-			model = spm.StellarPopulationModel(spec, 
-											   output_file, 
-											   self.cosmo, 
-											   models                = self.models_key, 
-											   model_libs            = self.model_libs, 
-											   imfs                  = self.imfs, 
-											   age_limits            = [self.ageMin,self.ageMax], 
-											   downgrade_models      = self.downgrade_models, 
-											   data_wave_medium      = self.data_wave_medium, 
-											   Z_limits              = [self.ZMin, self.ZMax], 
-											   use_downgraded_models = False, 
-											   write_results         = self.write_results, 
-											   flux_units            = self.flux_units)
+			if not self.model:
+				print("unique model")
+				self.model = spm.StellarPopulationModel(self.spec, 
+														self.output_file, 
+													    self.cosmo, 
+													    models                = self.models_key, 
+													    model_libs            = self.model_libs, 
+													    imfs                  = self.imfs, 
+													    age_limits            = [self.ageMin,self.ageMax], 
+													    downgrade_models      = self.downgrade_models, 
+													    data_wave_medium      = self.data_wave_medium, 
+													    Z_limits              = [self.ZMin, self.ZMax], 
+													    use_downgraded_models = False, 
+													    write_results         = self.write_results, 
+													    flux_units            = self.flux_units)
 			#initiate fit
-			model.fit_models_to_data()
-			tables.append( model.tbhdu )
+			self.model.fit_models_to_data()
+			self.tables.append( self.model.tbhdu )
 
 		except (ValueError):
-			tables.append(model.create_dummy_hdu())
+			self.tables.append(self.model.create_dummy_hdu())
 			print('did not converge')
 
-		complete_hdus = spm.pyfits.HDUList(tables)
-		complete_hdus.writeto(output_file, overwrite=True)
+		self.complete_hdus = spm.pyfits.HDUList(self.tables)
+		self.complete_hdus.writeto(self.output_file, overwrite=True)
 
 		print()
-		print ("Done... total time:", int(time.time()-t0) ,"seconds.")
+		print ("Done... total time:", int(time.time()-self.t0) ,"seconds.")
 		print()
-		return output_file
+		return self.output_file
 

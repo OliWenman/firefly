@@ -1,8 +1,9 @@
 
 body {
-  --font-size: 18px;
+  --font-size: 22px;
+  --font-ratio: 0.9;
   --input-radius: 5px;
-  --input-width: 200px;
+  --input-width: 120px;
 
   color: black;
   font-family: Helvetica-neue, Helvetica, Arial, sans-serif;
@@ -12,6 +13,10 @@ body {
   font-size: var(--font-size);
   display: inline-block;
   width: 100%;
+}
+
+.textsize {
+  
 }
 
 /* Header/Logo Title */
@@ -31,14 +36,14 @@ body {
 }
 
 .content {
-  
   box-sizing: border-box;
-  padding-right: 5%;
-  padding-left: 5%;
+  padding-right: 10%;
+  padding-left: 10%;
+  padding-top: 2%;
   padding-bottom: 5%;
   z-index:50;
-
 }
+
 .boarder {
   border-radius: 50px;
   background: white;
@@ -57,34 +62,45 @@ body {
 
 }
 label{
-  font-size: var(--font-size);
   border-radius: var(--input-radius);
-  border-color: 3px solid #D3D2D1;
   z-index: 1;
+  font-size: calc(var(--font-size) * var(--font-ratio));
 }
 input{
-  font-size: var(--font-size);
+  border-radius: var(--input-radius);
+
+  width: var(--input-width);
+  display: inline-block;
+  white-space: nowrap;
+  font-size: calc(var(--font-size) * var(--font-ratio));
+}
+input[type=file]{
   border-radius: var(--input-radius);
   border-color: 3px solid #D3D2D1;
-  width: var(--input-width);
+
+  display: inline-block;
+  white-space: nowrap;
+  color: transparent;
+  font-size: calc(var(--font-size) * var(--font-ratio));
+  width:100%;
 }
 select{
-  font-size: var(--font-size);
   border-radius: var(--input-radius);
   border-color: 3px solid #D3D2D1;
   width: var(--input-width);
+  font-size: calc(var(--font-size) * var(--font-ratio));
 }
 button{
-  font-size: var(--font-size);
   border-radius: var(--input-radius);
   border-color: 3px solid #D3D2D1;
+  font-size: calc(var(--font-size) * var(--font-ratio));
 }
 input[type=checkbox]{
-  font-size: var(--font-size);
   border-radius: var(--input-radius);
   border-color: 3px solid #D3D2D1;
   width: var(--font-size); 
   height: var(--font-size);
+  font-size: calc(var(--font-size) * var(--font-ratio));
 }
 #submit{
   width: 125px ; 
@@ -126,6 +142,12 @@ tr {
     font-size: var(--font-size);
 
 }
+
+
+#id_N_angstrom_masked {
+  width: 80px;
+}
+
 .wrapper1, .wrapper2 {
 
   overflow-x: scroll;

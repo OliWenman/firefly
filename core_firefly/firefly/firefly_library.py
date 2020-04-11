@@ -319,6 +319,8 @@ def match_data_models( data_wave_int, data_flux_int, data_flags, error_flux_int,
 	# 1.1. Defines the wavelength range on the model and on the data
 	min_wave = np.max([np.min(data_wave_int[np.where(data_flags==1)]), np.min(model_wave_int),min_wave_in])
 	max_wave = np.min([np.max(data_wave_int[np.where(data_flags==1)]), np.max(model_wave_int),max_wave_in])
+	print("min wave =",min_wave)
+	print("max wave =",max_wave)
 	#print np.min(data_wave_int[np.where(data_flags==1)]), np.min(model_wave_int), min_wave_in
 	#print np.max(data_wave_int[np.where(data_flags==1)]), np.max(model_wave_int), max_wave_in
 	loc_model 	= np.array(( model_wave_int <= max_wave) & (model_wave_int >= min_wave))

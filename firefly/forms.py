@@ -10,7 +10,10 @@ import os
 from astropy.io import fits
 from .fits_table import Fits_Table
 
+from core_firefly.emission_lines import emissionline_choices
+
 from django.utils.safestring import mark_safe
+
 
 class SEDform(forms.ModelForm):
 	class Meta:
@@ -47,6 +50,7 @@ class SEDfileform(forms.Form):
 
 	def validate_file_okay(value):
 		
+		"""
 		ext = os.path.splitext(value.name)[1]
 		valid_extensions = ['.ascii', '.fits']
 		if not ext in valid_extensions:
@@ -60,7 +64,8 @@ class SEDfileform(forms.Form):
 		elif ext == '.fits':
 
 			sed_file_path = os.path.join(settings.TEMP_FILES, value.name)
-
+		"""
+		"""
 			with open(sed_file_path, 'wb+') as destination:
 				for chunk in value.chunks():
 					destination.write(chunk)
@@ -95,28 +100,32 @@ class SEDfileform(forms.Form):
 						error_message = error_message + ", "
 
 				raise ValidationError(error_message)
-
+			"""
 
 	input_file = forms.FileField(required = True, 
-								 widget=forms.FileInput(attrs={'accept' : ('.ascii','.fits',)}), 
+								 widget=forms.ClearableFileInput(attrs={'multiple': True}), 
 								 validators = [validate_file_okay])
+	#widget=forms.ClearableFileInput(attrs={'multiple': True})
 
 
 
 model_key_choices   = [('m11','m11'), 
-					   ('m09', 'm09'), 
-					   ('bc03', 'bc03')]
+					   #('m09', 'm09'), 
+					   #('bc03', 'bc03')
+					   ("MaStar", "MaStar"),
+					   ]
 imf_choices         = [('kr','kr'), 
 					   ('ss', 'ss'), 
 					   ('cha', 'cha')]
 wave_medium_choices = [('air','air'), 
 					   ('vacuum','vacuum')]
 model_libs_choices  = [('MILES', 'MILES'), 
-					   ('MILES_revisednearIRslope', 'MILES_revisednearIRslope'), 
-					   ('MILES_UVextended', 'MILES_UVextended'),
+					   #('MILES_revisednearIRslope', 'MILES_revisednearIRslope'), 
+					   #('MILES_UVextended', 'MILES_UVextended'),
 					   ('STELIB', 'STELIB'),
 					   ('ELODIE', 'ELODIE'),
-					   ('MARCS', 'MARCS')]
+					   ('MARCS', 'MARCS'),
+					   ('Th','Th')]
 
 class FireFlySettings_Form(forms.Form):
 
@@ -132,12 +141,12 @@ class FireFlySettings_Form(forms.Form):
 										  help_text = "If left blank, Firefly will calculate a value based on the provided redshift.")
 	
 	ZMin             = forms.DecimalField(initial   = 0.0001,
-										  label     = "Minimum redshift", 
+										  label     = "Minimum metalicity", 
 										  min_value = 0,
 										  widget    = forms.TextInput({ "placeholder": 0.0001 }))
 	
 	ZMax             = forms.DecimalField(initial   = 10, 
-										  label     = "Maximum redshift", 
+										  label     = "Maximum metalicity", 
 										  min_value = 0,
 										  widget    = forms.TextInput({ "placeholder": 10 }))
 	
@@ -185,6 +194,7 @@ class FireFlySettings_Form(forms.Form):
 		
 		return ageMin, ageMax, ZMin, ZMax, flux_units
 
+"""
 emissionline_choices = [(None, '-') ,
 						('HeII', 'He-II:  3202.15A, 4685.74 [Å]'), 
 					    ('NeV',  'Ne-V:   3345.81, 3425.81 [Å]'),
@@ -204,30 +214,22 @@ emissionline_choices = [(None, '-') ,
 					    ('NII',  'N-II:   6547.96, 6583.34 [Å]'),
 					    ('SII',  'S-II:   6716.31, 6730.68 [Å]'),
 					    ('ArIII','Ar-III: 7135.67 [Å]')]
-
+"""
 class Emissionlines_Form(forms.Form):
-	
-	extra_field_count = forms.IntegerField(initial = 1,
-										   min_value = 0,
-										   max_value = 10)
-
-	N_angstrom_masked = forms.IntegerField(initial = 20,
-										   label = "Width of masking [Å]",
-										   help_text = "Firefly will ignore (mask) the data points corrosponding to the emission lines selected. Select the width of this masking around each point.",
-										   widget=forms.TextInput(attrs={'size': '3'}))
 
 	def __init__(self, *args, **kwargs):
 
-		self.max_emissionlines = 10
+		self.emissionline_choices = emissionline_choices
 
 		super(Emissionlines_Form, self).__init__(*args, **kwargs)
 
-		for index in range(self.max_emissionlines):
-			# generate extra fields in the number specified via extra_fields
-			self.fields['Emission_line_{index}'.format(index=index+1)] = forms.CharField(required=False, 
-																						 widget = forms.Select(choices = emissionline_choices),
-																						 initial = '',
-																						 max_length=100)
+		for index in range(len(emissionline_choices)):
+
+			self.fields[emissionline_choices[index][0]] = forms.BooleanField(required = False, label = emissionline_choices[index][1]) 
+
+		self.fields["N_angstrom_masked"] = forms.IntegerField(initial = 10,
+															  label = "Width of masking",
+															  help_text = "Firefly will ignore (mask) the data points corrosponding to the emission lines selected. Select the width of this masking around each point.")
 
 class ASCCI_additional_inputs(forms.Form):
 
