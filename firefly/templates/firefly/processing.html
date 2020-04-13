@@ -49,7 +49,7 @@
             }
         </style>
 
-    	<h1 class="loading">Processing your submittion</h1>
+    	<h1 class="loading">Processing your submission</h1>
 
 		<p>Your ticket number is <b>{{job_id}}</b></p>
 		
@@ -87,7 +87,7 @@
     		</tr>
     		<tr>
     			<td>
-    				Redshift range
+    				Metallicity range
     			</td>
     			<td>
     				: {{Zmin}} - {{Zmax}}
@@ -167,7 +167,7 @@
         <tr style="size: 5; text-align: center;">
           <th><h2>No.</h2></th>
           <th><h2>Spectra</h2></th>
-          <th><h2>Calculated values</h2></th>
+          <th><h2 class="loading">Calculating values</h2></th>
         </tr>
         {% for myplot in plot %}
         <tr>
