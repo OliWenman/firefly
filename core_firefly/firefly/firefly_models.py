@@ -381,12 +381,16 @@ class StellarPopulationModel:
             ver = 'v0.1'
                    
             lib = model_used#;print('MaStar library used: '+lib) # E=empirical,Th=theoretical
-            if imf_used == 'kr':
-                slope = 1.3
-            elif imf_used == 'ss':
-                slope = 2.35                
+            if type(imf_used) == str:
+                if imf_used == 'kr':
+                    slope = 1.3
+                elif imf_used == 'ss':
+                    slope = 2.35                
+                else:
+                    print('Unrecognised IMF. Please choose between kr and ss');sys.exit()
             else:
-                print('Unrecognised IMF. Please choose between kr and ss');sys.exit()
+                slope = imf_used
+
             print('IMF slope used: '+str(slope))
             
             hdul=pyfits.open(model_path+'/MaStar_SSP_'+ver+'.fits')

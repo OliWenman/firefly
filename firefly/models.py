@@ -43,7 +43,7 @@ class Job_Submission(models.Model):
 	output_file      = models.FileField(upload_to='output_files', blank = True)
 	n_spectra        = models.IntegerField(default = 1, verbose_name='Number of spectra')
 	ageMin           = models.FloatField(default = None, null=True)
-	ageMax		     = models.FloatField(default = None, null=True)
+	ageMax		     = models.CharField(default = None, null=True, max_length = 10)
 	Zmin			 = models.FloatField(default = None, null=True)
 	Zmax			 = models.FloatField(default = None, null=True)
 	flux_units		 = models.FloatField(default = None, null=True)
@@ -52,7 +52,7 @@ class Job_Submission(models.Model):
 	wave_medium      = models.CharField(max_length = 10, null=True)
 	downgrade_models = models.BooleanField(default = None, null=True)
 	width_masking    = models.FloatField(default = None, null=True)
-	emission_lines    = models.CharField(max_length = 50, null=True)
+	emission_lines   = models.CharField(max_length = 50, null=True)
 	submitted        = models.DateTimeField(default=datetime.now, blank=True)
 
 	#created_date = models.DateTimeField(default=now, editable=False)

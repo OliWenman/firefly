@@ -29,15 +29,17 @@ clean_db = True
 
 import sys, os
 
+hideprint = True
+
 # Disable
 def blockPrint():
-    #sys.stdout = open(os.devnull, 'w')
-    pass
+	if hideprint:
+		sys.stdout = open(os.devnull, 'w')
 
 # Restore
 def enablePrint():
-    #sys.stdout = sys.__stdout__
-    pass
+	if hideprint:
+		sys.stdout = sys.__stdout__
 
 def convert_to_fits_table(spectra_list,
 						  file_list,
@@ -190,6 +192,7 @@ def clean_database(job_id):
 
 @background(name = 'firefly', queue = 'my-queue')
 def firefly_run(input_file, 
+				output_name,
 				job_id,
 				ageMin,
 				ageMax,
@@ -265,10 +268,9 @@ def firefly_run(input_file,
 									vdisp        = vdisp,
 									r_instrument = r_instrument)
 
-			output_file_i = os.path.join(settings.TEMP_FILES, "temp" + str(i) + "_" + file)
+			output_file_i = os.path.join(settings.TEMP_FILES, "temp" + str(i) + "_" + output_name)
 
 			enablePrint()
-			print(output_file_i, "starting")
 			blockPrint()
 
 			#Run firefly to process the data
@@ -286,7 +288,7 @@ def firefly_run(input_file,
 			job_submission.status = str(progress)
 			job_submission.save()
 
-		output_file = os.path.join(settings.OUTPUT_FILES, "output_" + file)
+		output_file = os.path.join(settings.OUTPUT_FILES, output_name)
 		convert_to_fits_table(spectra_list = spectra_list,
 							  file_list    = output_list,
 							  output_file  = output_file)

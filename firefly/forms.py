@@ -8,6 +8,7 @@ import time
 import numpy as np
 import os
 from astropy.io import fits
+import string
 from .fits_table import Fits_Table
 
 from core_firefly.emission_lines import emissionline_choices
@@ -34,79 +35,42 @@ class SEDform(forms.ModelForm):
 		else:
 			return False
 
+wave_medium_choices = [('air','air'), 
+					   ('vacuum','vacuum')]
 
 class SEDfileform(forms.Form):
 	
-	def __init__(self, *args, **kwargs):
+	
+	flux_units       = forms.DecimalField(initial   = 1, 
+										  min_value = 0.,
+										  widget    = forms.TextInput({ "placeholder": 1 }), 
+										  help_text = "Assumes flux units of [erg/s]/[A/cm^2]. Choose factor if flux is scaled (e.g. flux_units = 1e-17 for SDSS).")
 
-		super(SEDfileform, self).__init__(*args, **kwargs)
-		extra_inputs = kwargs.pop('extra', None)
+	wave_medium      = forms.CharField(label = "Wave medium", 
+									   widget = forms.Select(choices = wave_medium_choices), 
+									   help_text = "Specify whether your data is in air or vaccum." )
 
-		if extra_inputs != None:
-		
-			for i in range(len(extra_inputs)):
-				# generate extra fields
-				self.fields[extra_inputs[i]] = forms.DecimalField(required=True)
+	def filename_okay(filename):
 
-	def validate_file_okay(value):
-		
-		"""
-		ext = os.path.splitext(value.name)[1]
-		valid_extensions = ['.ascii', '.fits']
-		if not ext in valid_extensions:
-			raise ValidationError(u'File not supported!')
-		if ext == '.ascii':
-			try:
-				np.loadtxt(value, unpack=True)
-			except(ValueError):
-				raise ValidationError(u'File is corrupted!')
-		
-		elif ext == '.fits':
+		valid_chars = "-_() %s%s" % (string.ascii_letters, string.digits)
 
-			sed_file_path = os.path.join(settings.TEMP_FILES, value.name)
-		"""
-		"""
-			with open(sed_file_path, 'wb+') as destination:
-				for chunk in value.chunks():
-					destination.write(chunk)
-			
-			file_okay = True
-			test_array = ['spectra', 'flux', 'loglam', 'ivar', 'Z', 'vdisp', 'ra', 'dec']
+		filename_check = ''.join(c for c in filename if c in valid_chars)
 
-			with fits.open(sed_file_path) as hdul:
-				try:
-					for file_data in test_array:
-						hdul[1].data[file_data]
-						test_array.remove(file_data)
+		if filename != filename_check:
+			raise ValidationError("Invalid output file name.")
 
-				except:
-					file_okay = False
+	output_name = forms.CharField(required   = False,
+								  max_length = 20, 
+								  validators = [filename_okay,],
+								  widget     = forms.TextInput({ "placeholder": "Optional" }),
+								  help_text  = "Choose an output file name (don't include extension). If left blank will auto generate one.")
 
-			os.remove(sed_file_path)
-
-			if file_okay == False:
-				print(test_array)
-
-				error_message = u'Fits table incorrect format. Missing the following columns: '
-				end = len(test_array)
-				n = 0
-				for data_missing in test_array:
-					error_message = error_message + data_missing
-					n = n + 1
-
-					if n == end:
-						error_message = error_message + ". "
-					else: 
-						error_message = error_message + ", "
-
-				raise ValidationError(error_message)
-			"""
 
 	input_file = forms.FileField(required = True, 
 								 widget=forms.ClearableFileInput(attrs={'multiple': True}), 
-								 validators = [validate_file_okay])
+								 label = "Upload files",
+								 help_text = "Can upload multiple '.fits' files or a single '.ascii' file. For more information, please visit the file format page.")
 	#widget=forms.ClearableFileInput(attrs={'multiple': True})
-
 
 
 model_key_choices   = [('m11','m11'), 
@@ -114,11 +78,7 @@ model_key_choices   = [('m11','m11'),
 					   #('bc03', 'bc03')
 					   ("MaStar", "MaStar"),
 					   ]
-imf_choices         = [('kr','kr'), 
-					   ('ss', 'ss'), 
-					   ('cha', 'cha')]
-wave_medium_choices = [('air','air'), 
-					   ('vacuum','vacuum')]
+
 model_libs_choices  = [('MILES', 'MILES'), 
 					   #('MILES_revisednearIRslope', 'MILES_revisednearIRslope'), 
 					   #('MILES_UVextended', 'MILES_UVextended'),
@@ -126,6 +86,10 @@ model_libs_choices  = [('MILES', 'MILES'),
 					   ('ELODIE', 'ELODIE'),
 					   ('MARCS', 'MARCS'),
 					   ('Th','Th')]
+					   
+imf_choices         = [('Kroupa','Kroupa'), 
+					   ('Salpeter', 'Salpeter'), 
+					   ('Chabrier', 'Chabrier')]
 
 class FireFlySettings_Form(forms.Form):
 
@@ -149,72 +113,31 @@ class FireFlySettings_Form(forms.Form):
 										  label     = "Maximum metalicity", 
 										  min_value = 0,
 										  widget    = forms.TextInput({ "placeholder": 10 }))
-	
+	"""
 	flux_units       = forms.DecimalField(initial   = 1, 
 										  min_value = 0.,
 										  widget    = forms.TextInput({ "placeholder": 1 }), 
 										  help_text = "Firefly assumes flux units of erg/s/A/cm^2. Choose factor in case flux is scaled (e.g. flux_units=10**(-17) for SDSS")
-	
+	"""
 	model_key        = forms.CharField(widget = forms.Select(choices = model_key_choices),
-									   help_text = "m11: Maraston and Stromback 2011, m09: Maraston et al. 2009, bc03: Bruzual and Charlot 2003")
+									   help_text = "Pick a model to fit to your data. m11: Maraston and Stromback 2011, MaStar: 'placeholder'")
 	
 	model_libs       = forms.CharField(label = "Model library", 
 									   widget = forms.Select(choices = model_libs_choices), 
-									   help_text = "Only necessary if using m11. All are empirical libraries except for MARCS which is a theoretical library.")
+									   help_text = "If model_key is m11, all are empirical libraries except for MARCS which is a theoretical library. MaStar has the option between a theoretical library or an empirical one.")
 
 	imfs             = forms.CharField(label = "IMF", 
 									   widget = forms.Select(choices = imf_choices), 
-									   help_text = "Describes the initial distribution of masses for a population of stars. ss: Salpeter, kr: Kroupa, cha: Chabrier")
-	
+									   help_text = "Describes the initial distribution of masses for a population of stars.")
+	"""
 	wave_medium      = forms.CharField(label = "Wave medium", 
 									   widget = forms.Select(choices = wave_medium_choices), 
 									   help_text = "Specify whether data is in air or vaccum" )
-	
+	"""
 	downgrade_models = forms.BooleanField(initial = True, 
 										  required = False, 
 										  help_text = "Specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion")
 
-	def check_values(self,
-					 ageMin,
-					 ageMax,
-					 ZMin,
-					 ZMax,
-					 flux_units):
-
-		if ageMin == '':
-			ageMin = 0
-		if ageMax == '':
-			ageMax = None
-		if ZMin == '':
-			ZMin = 0.0001
-		if ZMax == '':
-			ZMax = 10
-		if flux_units == '':
-			flux_units = 1
-		
-		return ageMin, ageMax, ZMin, ZMax, flux_units
-
-"""
-emissionline_choices = [(None, '-') ,
-						('HeII', 'He-II:  3202.15A, 4685.74 [Å]'), 
-					    ('NeV',  'Ne-V:   3345.81, 3425.81 [Å]'),
-					    ('OII',  'O-II:   3726.03, 3728.73 [Å]'),
-					    ('NeIII','Ne-III: 3868.69, 3967.40 [Å]'),
-					    ('H5',   'H-ζ:     3889.05 [Å]'),
-					    ('He',   'H-ε:     3970.07 [Å]'),
-					    ('Hd',   'H-δ:     4101.73 [Å]'),
-					    ('Hg',   'H-γ:     4340.46 [Å]'),
-					    ('OIII', 'O-III:  4363.15, 4958.83, 5006.77 [Å]'),
-					    ('ArIV', 'Ar-IV:  4711.30, 4740.10 [Å]'),
-					    ('Hb',   'H-β:     4861.32 [Å]'),
-					    ('HI',   'H-I:    5197.90, 5200.39 [Å]'),
-					    ('HeI',  'He-I:   5875.60 [Å]'),
-					    ('OI',   'O-I:    6300.20, 6363.67 [Å]'),
-					    ('Ha',   'H-α:     6562.80 [Å]'),
-					    ('NII',  'N-II:   6547.96, 6583.34 [Å]'),
-					    ('SII',  'S-II:   6716.31, 6730.68 [Å]'),
-					    ('ArIII','Ar-III: 7135.67 [Å]')]
-"""
 class Emissionlines_Form(forms.Form):
 
 	def __init__(self, *args, **kwargs):

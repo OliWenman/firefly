@@ -17,23 +17,38 @@
 		</p>
 		<h2>Process your data</h2>
 		<p>
-			Upload your data, choose appropiate parameters and a model to fit to the data. Hover over the labels to gain more information about each input field if you are unsure.
+			Upload your data, choose appropiate parameters and a model to fit to the data. <b>Hover over</b> the <b>labels</b> to gain more information about each input field if you are unsure.
 		</p>
 
 		<form enctype="multipart/form-data" method = "POST">
 			{% csrf_token %}
 
 			<fieldset>
-				<legend><b>SED file</b></legend>
+				<legend><b>Data</b></legend>
 
 				<div class="row">
-					<div class="column" style="left: 0px;">
-						{% for field in SED.visible_fields %}
-							{{field}}
-							<br/><b id="SED_ERROR"><font color="red">{{field.errors}}</font></b>
-						{% endfor %}
+					<div class="column">
+						<table>
+							{% for field in SED.visible_fields %}
+								<tr>
+									<td>
+										<div class="tooltip">
+											{{ field.label_tag }}
+											{% if field.help_text %}
+					              				<span class="tooltiptext">{{ field.help_text }}</span>
+					            			{% endif %}
+					            		</div>
+				            		</td>
+									<td>
+										{{ field }}
+									</td>
+								</tr>
+
+								<b id="SED_ERROR"><font color="red">{{field.errors}}</font></b>
+							{% endfor %}
+						</table>
 						<br>
-						<b>Selected files:</b>
+						<b>Files selected:</b>
 						<div id="fileList">No file selected</div>
 						
 						<div id="id_file_error"><font color="red"><b>{{file_error}}</b></font></div>
@@ -246,7 +261,7 @@
 					var model_lib_choices = ["MILES", "STELIB", "ELODIE", "MARCS"];
 				}
 				else if (model_key.value == "MaStar"){
-					var model_lib_choices = ["Th"];
+					var model_lib_choices = ["Theoretical", "Empirical"];
 				}
 
 				model_lib_choices.forEach(function(choice) {
@@ -286,11 +301,11 @@
 
 				if (model_key.value == "m11"){
 
-					var imf_choices = ["cha", "kr", "ss", ];
+					var imf_choices = ["Chabrier", "Kroupa", "Salpeter", ];
 				}
 				else if (model_key.value == "MaStar"){
 			
-					var imf_choices = ["kr", "ss"];
+					var imf_choices = ["Kroupa", "Salpeter"];
 				}
 
 				var found_selected_choice = false;
@@ -316,8 +331,11 @@
 				imf_list.value = imf_list_value;
 			}
 
-			model_lib_choices();
-			imf_choices();
+			history.navigationMode = 'compatible';
+			$(document).ready( function(){
+    			model_lib_choices();
+				imf_choices();
+			});
 
 			$("#id_model_key").change(function() {
 				model_lib_choices();

@@ -142,11 +142,15 @@
     			</td>
     		</tr>
     		<tr>
-    			<td>
+    			<td nowrap>
     				Emission lines masked
     			</td>
     			<td>
-    				: {{emission_lines}}
+                    {% if emission_lines %}
+    				    : {{emission_lines}}
+                    {% else %}
+                        : None
+                    {% endif %}
     			</td>
     		</tr>
 

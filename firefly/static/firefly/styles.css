@@ -3,7 +3,7 @@ body {
   --font-size: 22px;
   --font-ratio: 0.9;
   --input-radius: 5px;
-  --input-width: 120px;
+  --input-width: 160px;
 
   color: black;
   font-family: Helvetica-neue, Helvetica, Arial, sans-serif;
@@ -42,6 +42,7 @@ body {
   padding-top: 2%;
   padding-bottom: 5%;
   z-index:50;
+  min-width: 700px;
 }
 
 .boarder {

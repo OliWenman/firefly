@@ -33,7 +33,7 @@
     <h3>
         Inputs:
       </h3>
-      <table>
+      <table style="white-space: nowrap;">
         <tr>
           <td>
             Total spectra
@@ -115,11 +115,15 @@
           </td>
         </tr>
         <tr>
-          <td>
-            Emission lines masked
+          <td nowrap>
+            Emission lines masked: 
           </td>
-          <td>
-            : {{emission_lines}}
+          <td style="white-space: normal;">
+            {% if emission_lines %}
+              {{emission_lines}}
+            {% else %}
+              : None
+            {% endif %}
           </td>
         </tr>
 
@@ -156,10 +160,10 @@
             <td valign="top" style="white-space: nowrap;">
               <ul><font size="5" style="line-height: 2.5;">
                 {% if converged|index:forloop.counter0 %}
-                  <li>\$ \left[ Z \over H \right] \$: {{ metallicity|index:forloop.counter0 }} </li>
-                  <li>\$ log \left[ {M \over M_{sun}} \right] \$: {{ mass|index:forloop.counter0 }} </li>
-                  <li><i> Age </i>: {{ age|index:forloop.counter0 }} </li>
-                  <li>\$ E(B-V) \$: {{ light|index:forloop.counter0 }}</li>
+                  <li>\$ Z \over H \$ \$ = {{ metallicity|index:forloop.counter0 }} \left[ dex \right]\$</li>
+                  <li>\$ Mass = {{ mass|index:forloop.counter0 }} \left[ {M \over M_{sun}} \right] \$</li>
+                  <li>\$ Age = {{ age|index:forloop.counter0 }} \left[ Gyr \right] \$</li>
+                  <li>\$ E(B-V) \$ = {{ light|index:forloop.counter0 }} </li>
                 {% else %}
                   <li><font color="red"><b>Did not converge.</b></font></li>
                 {% endif %}

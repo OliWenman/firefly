@@ -172,15 +172,20 @@ def home(request):
 				n_spectra = 1
 
 			#Get the variables from the form.
+			"""
 			ageMin, ageMax, ZMin, ZMax, flux_units = settings_form.check_values(ageMin     = request.POST['ageMin'],
-																				 ageMax     = request.POST['ageMax'],
-																				 ZMin       = request.POST['ZMin'],
-																				 ZMax       = request.POST['ZMax'],
-																				 flux_units = request.POST['flux_units'])
-
+																				ageMax     = float(request.POST['ageMax']),
+																				ZMin       = request.POST['ZMin'],
+																				ZMax       = request.POST['ZMax'],
+																				flux_units = request.POST['flux_units'])
+			"""
 			ageMin			 = float(request.POST['ageMin'])
+			ageMax           = request.POST['ageMax']
+			if ageMax == '':
+				ageMax = None
+			else:
+				ageMax = float(ageMax)
 
-			#ageMax           = request.POST['ageMax']
 			ZMin             = float(request.POST['ZMin'])
 			ZMax             = float(request.POST['ZMax'])
 			flux_units       = float(request.POST['flux_units'])
@@ -238,13 +243,16 @@ def home(request):
 				redshift = ra = dec = vdisp = r_instrument = None
 
 			#Model libs as a string for user
-			if model_libs == "MILES":
-				temp_model_libs = model_libs + " - "+ models_key
+			#if model_libs == "MILES":
+			temp_model_libs = models_key + " - " + model_libs 
+			#else:
+			#temp_model_libs = model_libs
+
+
+			if ageMax == None:
+				ageMax_storage = "Default"
 			else:
-				temp_model_libs = model_libs
-
-
-			place_holder = 0
+				ageMax_storage = str(ageMax)
 
 			#Create Job_Submission instance to save to database
 			job_submission = Job_Submission.objects.create(job_id     = job_id,
@@ -252,7 +260,7 @@ def home(request):
 														   input_file = os.path.relpath(input_file, settings.MEDIA_ROOT),
 														   n_spectra  = n_spectra,
 														   ageMin     = ageMin,
-														   ageMax     = place_holder,
+														   ageMax     = ageMax_storage,
 														   Zmin       = ZMin,
 														   Zmax       = ZMax,
 														   flux_units = flux_units,
@@ -262,10 +270,30 @@ def home(request):
 														   downgrade_models = downgrade_models,
 														   width_masking = N_angstrom_masked,
 														   emission_lines = emission_lines_str)  
-			#Run firefly task in the background
+			if imfs == "Kroupa":
+				imfs = "kr"
+			elif imfs == "Salpeter":
+				imfs = "ss"
+			elif imfs == "Chabrier":
+				imfs = "cha"
+			#Check if imf is a float
+			elif imfs.replace('.','',1).isdigit():
+				imfs = float(imfs)
+
+			if model_libs == "Theoretical":
+				model_libs = "Th"
+			elif model_libs == "Empirical":
+				model_libs = "E"
+
+			output_name = request.POST.get('output_name')
+			if request.POST.get('output_name') == '':
+				output_name = "output_" + str(job_id) + ".fits"
+			else:
+				output_name = output_name + "_" + str(job_id) + ".fits"
 			
 			#Run the background task of firefly
 			firefly_run(input_file        = input_file, 
+						output_name       = output_name,
 						job_id            = job_id,
 						#Model inputs
 						ageMin            = ageMin,
@@ -376,10 +404,10 @@ def processed(request, job_id):
 					csp_light=np.ndarray(int(hdul[1].data['ssp_number'][i]))
 					csp_mass=np.ndarray(int(hdul[1].data['ssp_number'][i]))
 					
-					age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))+' Gyr'
-					metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))+' dex'
+					age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))
+					metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))
 					mass        = str(np.around(hdul[1].data['stellar_mass'][i],decimals=2))
-					light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))+' mag'
+					light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))
 
 					for n in range(len(csp_age)):
 						csp_age[n]=hdul[1].data['log_age_ssp_'+str(n)][i]
@@ -394,7 +422,10 @@ def processed(request, job_id):
 
 				age_array.append(age)
 				metallicity_array.append(metallicity)
-				stellar_mass_array.append(mass)
+				try:
+					stellar_mass_array.append(np.around(10**(float(mass))), decimals = 2)
+				except:
+					stellar_mass_array.append(mass)
 				light_array.append(light)
 
 				gridspec.GridSpec(2,2)
