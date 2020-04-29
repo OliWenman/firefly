@@ -13,5 +13,5 @@ urlpatterns = [
 	path('', views.home, name = 'home'),
 	path('<int:job_id>/', views.processed, name = 'processed'),
 	path('download/<str:location>/<int:job_id>/', views.download, name = 'download'),
-	path('fits_format/', views.fits_format, name = 'fits_format')
+	path('file_format/', views.fits_format, name = 'file_format')
 	] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT) + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

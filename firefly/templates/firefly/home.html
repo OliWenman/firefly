@@ -1,208 +1,357 @@
+{% extends 'firefly/base.html' %}
 
+{% block content %}
+	<head>
+	  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
+	  <link rel="stylesheet" type="text/css" href = "/static/firefly/layout.css" />
+	</head>
 
-<head>
+	<body>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
+		{% load index %}
 
-  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+		<h1>What is Firefly?</h1>
+		
+		<p>
+			<b>F</b>itting <b>I</b>te<b>R</b>ativ<b>E</b>ly <b>F</b>or <b>L</b>ikelihood anal<b>Y</b>sis is a full spectral fitting code using the chi-squared minimisation method. It is able to derive the stellar population properties of stellar systems, be these observed galaxy or star cluster spectra, or model spectra from simulations. For more information about firefly, please visit the <a href= "http://www.icg.port.ac.uk/firefly/" target="_blank"> ICG page. </a>
+		</p>
+		<h2>Process your data</h2>
+		<p>
+			Upload your data, choose appropiate parameters and a model to fit to the data. <b>Hover over</b> the <b>labels</b> to gain more information about each input field if you are unsure.
+		</p>
 
-  <link rel="stylesheet" type="text/css" href = "/static/firefly/styles.css" />
-  <link rel="stylesheet" type="text/css" href = "/static/firefly/tooltip.css" />
+		<form enctype="multipart/form-data" method = "POST">
+			{% csrf_token %}
 
-</head>
+			<fieldset>
+				<legend><b>Data</b></legend>
 
-<body class="big">
-  <header>Welcome to Firefly!</header>
-  <section><p>You are: {{ manager.queue }} in the queue</p> </section>
-  <section>
-    <fieldset>
-      <legend><b>Inputs</b></legend>
+				<div class="row">
+					<div class="column">
+						<table>
+							{% for field in SED.visible_fields %}
+								<tr>
+									<td>
+										<div class="tooltip">
+											{{ field.label_tag }}
+											{% if field.help_text %}
+					              				<span class="tooltiptext">{{ field.help_text }}</span>
+					            			{% endif %}
+					            		</div>
+				            		</td>
+									<td>
+										{{ field }}
+									</td>
+								</tr>
 
-      <form enctype="multipart/form-data" method = "POST" onsubmit="; loading_message(); submit.disabled = true; return true;">
+								<b id="SED_ERROR"><font color="red">{{field.errors}}</font></b>
+							{% endfor %}
+						</table>
+						<br>
+						<b>Files selected:</b>
+						<div id="fileList">No file selected</div>
+						
+						<div id="id_file_error"><font color="red"><b>{{file_error}}</b></font></div>
+						
+						<div id="test">
+							<script type="text/javascript"> document.getElementById("test").style.display = 'none'; </script>
+							<p>
+								<b>ASCII files require additional inputs.</b>
+							</p>
+							<table>
+								{% for field in ascii_additional_inputs.visible_fields %}
+									<tr>
+										<td><div class="tooltip"> {{ field.label_tag }}
+											{% if field.help_text %}
+					              				<span class="tooltiptext">{{ field.help_text }}</span>
+					            			{% endif %}
+					            		</div></td>
+										
+										<td>
+											{{ field }}
+										</td>
+									</tr>
+								{% endfor %}
+							</table>
+						</div>
+					</div>
+					<div class="column">
+						Select fits files or a single ascii file. For more information on how the file should be formatted or to download example data, <a  href="{% url 'firefly:file_format' %}" target="_blank"> click here</a>.
+					</div>
+				</div>
 
-        {% csrf_token %}
+			</fieldset>
 
-        <fieldset>
-          <legend><b>Model</b></legend>
-        </fieldset>
+			<fieldset>
+				<legend><b>Model</b></legend>
+				<div class="row">
+					<div class="column">
+						<table>
+							{% for field in form.visible_fields %}
+								<tr>
+									<td>
+										<div class="tooltip">
+											{{ field.label_tag }}
+											{% if field.help_text %}
+					              				<span class="tooltiptext">{{ field.help_text }}</span>
+					            			{% endif %}
+					            		</div>
+				            		</td>
+									{{ field.errors }}
+									<td>
+										{{ field }}
+									</td>
+								</tr>
+							{% endfor %}
+						</table>
+					</div>
+					<div class="column">
+						Select your model opitions to fit to your data. The model selected and parameters chosen are tailered to different types of galaxies, so if it doesn't converge then try again with another model or inputs.
+					</div>
+				</div>
+			</fieldset>
 
-        <br/>
+			<fieldset>
+				<legend><b>Masking Emission lines</b></legend>
+				<div class="row">
+					<div class="column">
+						<b>Elements [Å]</b>
+						<table>
+							{% for field in emissionlines_form.visible_fields %}
+								<tr>
+									<td><div id="forms" class="tooltip"> {{ field.label_tag }}
+										{% if field.help_text %}
+				              				<span class="tooltiptext">{{ field.help_text }}</span>
+				            			{% endif %}
+				            		</div></td>
+									
+									<td align="right">
+										{{ field }}
+									</td>
+								</tr>
+							{% endfor %}
+						</table>
+						<br>
+						<button id="add-all" type="button">Select all</button>
+						<button id="remove-all" type="button">Remove all</button>
+					</div>
+					<div class="column">
+						<div class="textsize">
+						If your data contains emission lines, specify them as this can affect the fitting Firefly performs on your data. Simply tick the elements that apply. Click the Add-all button to automatically select all elements or deselect them with the Remove-all button.
+						</div>
+					</div>
+				</div>
+			</fieldset>
+			<br>
 
-        <fieldset>
-          
-          <legend>
-            <div class="tooltip"> <b>SED</b>
-              <span class="tooltiptext">Spectral energy distrubtion. Ascii file containing wavelength and flux arrays.</span>
-            </div>
-          </legend>
-          
-          <input type="file" name="SED" accept=".ascii">
+			<button type="submit" name = "submit" id = "submit">Submit</button>
 
-          <div id = "error_message_SED">
-            {% if error_message_SED %}
-              <br/>
-              <b><font color="red">{{error_message_SED}}</font></b>
-            {% endif %}
-          </dir>
+		</form>
 
-        </fieldset>
+		<script type="text/javascript">
 
-        <br/>
+			//Find the extra_field_count variable for emissionlines_form and make it a hidden variable
+			//document.getElementById('id_extra_field_count').style.display = 'none';
+			//$('label[for="id_extra_field_count"], input[name="id_extra_field_count"]').css("display","none");
 
-        <fieldset>
-          <legend><b>Preferences</b></legend>
+			//Function to hide additional ascii inputs
+			function ascii_inputs_visible(value){
 
-          <br/>
+				var display;
+				var required;
+				if (value == true){
+					display = '';
+					required = true;
+				}
+				else {
+					display = 'none';
+					required = false;
+				}
+				document.getElementById("test").style.display = display;
+				document.getElementById("id_ra").required = required;
+				document.getElementById("id_dec").required = required;
+				document.getElementById("id_vdisp").required = required;
+				document.getElementById("id_redshift").required = required;
+				document.getElementById("id_r_instrument").required = required;
 
-          <div style="display:inline-block;">
-            <label>Model key</label>
-            <select id = "models_key">
-              <option value = "m11">m11</option>
-            </select>
-          </div>
+				//$('label[for=id_ra], input#id_ra').css("display","");
+			};
 
-          <br/>
+			//Hide the inputs 
+			ascii_inputs_visible(false);
 
-          <div style="display:inline-block;">
-            <label>Minimium age</label>
-            <input type="number" name="ageMin" value="0">
-          </div>
+			//Limit file type
+			document.getElementById('id_input_file').setAttribute("accept", ".fits, .ascii");
 
-          <br/>
+			//Detect when the file input value has changed, reveal additional info if ascii file
+			$('input[type=file]').change(function() {
+				document.getElementById("id_file_error").style.display = 'none';
 
-          <div style="display:inline-block;">
-            <label>ZMin</label>
-            <input type="number" name="ZMin" value="0.001">
-          </div>
+    			var fileName = $("input[type=file]").val();
+    			var extension = fileName.split('.').pop();
 
-          <br/>
+    			var input = document.getElementById('id_input_file');//$("input[type=file]");
+    			var output = document.getElementById('fileList');
 
-          <div style="display:inline-block;">
-            <label>ZMax</label>
-            <input type="number" name="ZMax" value="10">
-          </div>
+    			if (input.files.length == 0) {
+    				output.innerHTML = 'No files selected';
+    			}
+    			else {
+    				if (input.files.length > 1) {
+    					output.innerHTML = '<b>' + 'Total files: ' + '</b>' + input.files.length;
+    				}
+    				else {
+    					output.innerHTML = ' ';
+    				}
+    				//output.innerHTML += '<ol>';
+					for (var i = 0; i < input.files.length; ++i) {
+						var name = '<br>' + (i + 1) + '. ' + input.files.item(i).name;
+						output.innerHTML += name;
+					}
+					//output.innerHTML += '</ol>';
+    			}
 
-          <br/> <br/>
+    			//Display the full filename
+  				//var output = document.getElementById('fileList');
+			    //output.innerHTML = '<font>' + fileName.split('\\').pop() + '</font>';
 
-          <div style="display:inline-block;">
-            <label>model_libs</label>
-            <select id = "model_libs">
-              <option value = "MILES">MILES</option>
-            </select>
-            <div class="tooltip"> &nbsp; ? 
-              <span class="tooltiptext">Model flavour</span>
-            </div>
-          </div>
+    			// returns true if the string is not empty
+    			if(fileName) { 
+    				if (extension == 'ascii') {ascii_inputs_visible(true);}
+        			else {ascii_inputs_visible(false);}
+    			} 
+    			else {ascii_inputs_visible(false);}
+			});
 
-          <br/>
+			//Get the number of emission line fields that are currently shown
+			var num_fields = Number($("[name=extra_field_count]").val()) + 1;
 
-          <div style="display:inline-block;">
-            <label for="imf">imfs</label>
-            <select id = "imfs">
-              <option value = "kr">kr</option>
-            </select>
-            <div class="tooltip"> &nbsp; ? 
-              <span class="tooltiptext">Initial mass function model</span>
-            </div>
-          </div>
+			//When add button clicked, add an additional field
+			$("#add-all").click(function() {
+				
+				"{% for field in emissionlines_form.visible_fields %}";
+					var name = "id_" + "{{emissionlines_form.emissionline_choices|index:forloop.counter0|index:0}}"; 
+					document.getElementById(name).checked = 'on';
+				"{% endfor %}";
 
-          <br/>
+			});
 
-          <div style="display:inline-block">
-            <label>Wave medium</label>
-            <select id = "wave_medium">
-              <option value = "air">air</option>
-              <option value = "vacuum">vacuum</option>
-            </select>
+			//When remove button clicked, remove an additional field.
+			$("#remove-all").click(function() {
+			    
+			   "{% for field in emissionlines_form.visible_fields %}";
+					var name = "id_" + "{{emissionlines_form.emissionline_choices|index:forloop.counter0|index:0}}"; 
+					document.getElementById(name).checked = '';
+				"{% endfor %}";
+			});
 
-            <div class="tooltip"> <label> &nbsp; ?</label> 
-              <span class="tooltiptext">Specify whether data is in air or vaccum</span>
-            </div>
-          </div>
+			function model_lib_choices() {
 
-          <br/>
+				var model_libs_list = document.getElementById("id_model_libs");
+				var model_libs_list_value =  model_libs_list.value;
 
-          <div style="display:inline-block">
-            <label>Downgrade models</label>
-            <select id = "downgrade_models">
-              <option value = "true">true</option>
-              <option value = "false">false</option>
-            </select>
+				var length = model_libs_list.options.length;
+				for(var i = 0; i < length; ++i) {
+						model_libs_list.options[0].remove()
+				}
 
-            <div class="tooltip"> &nbsp; ? 
-              <span class="tooltiptext">Specify whether models should be downgraded to the instrumental resolution and galaxy velocity dispersion</span>
-            </div>
-          </div>
+				var model_key = document.getElementById("id_model_key");
 
-          <br/>
+				if (model_key.value == "m11"){
+					var model_lib_choices = ["MILES", "STELIB", "ELODIE", "MARCS"];
+				}
+				else if (model_key.value == "MaStar"){
+					var model_lib_choices = ["Theoretical", "Empirical"];
+				}
 
-          <div style="display: inline-block;">
-            <label>Flux units</label>
-            <input type="number" name="flux_units" min="0" value="1">
-            <div class="tooltip"> &nbsp; ? 
-              <span class="tooltiptext">Firefly assumes flux units of erg/s/A/cm^2. Choose factor in case flux is scaled (e.g. flux_units=10**(-17) for SDSS)</span>
-            </div>
-          </div>
+				model_lib_choices.forEach(function(choice) {
+					// create new option element
+					var opt = document.createElement('option');
+					opt.appendChild( document.createTextNode(choice) );
+					opt.value = choice; 
+					model_libs_list.appendChild(opt);
+				}); 
 
-          {{form}}
+				var found_selected_choice = false;
+				for(var i = 0; i < model_lib_choices.length ; ++i) {
+					if (model_libs_list.options[i].value ==  model_libs_list_value) {
+						found_selected_choice = true;
+						break;
+					}
+				}
 
-          {{form.errors}}
+				if (found_selected_choice == false) {
+					model_libs_list_value = model_lib_choices[0];
+				}
 
-          <br/>
+				model_libs_list.value = model_libs_list_value;
+			}
 
-          <div style="display:inline-block;">
-            <label for="error">Error(%)</label>
-            <input id = "error" type="number" name="error" value="10" required>
-          </div>
+			function imf_choices() {
 
+				var imf_list = document.getElementById("id_imfs");
+				var imf_list_value =  imf_list.value;
 
-        </fieldset>
+				var length = imf_list.options.length;
+				for(var i = 0; i < length; ++i) {
+						imf_list.options[0].remove();
+				}
 
-        <br/>
-        <button id = "submit"  type="submit" method = "POST" onclick="">Submit</button>
+				var model_key = document.getElementById("id_model_key");
 
-        {% if error_message %}
-          {{error_message}}
-        {% endif %}
+				if (model_key.value == "m11"){
 
-      </form>
+					var imf_choices = ["Chabrier", "Kroupa", "Salpeter", ];
+				}
+				else if (model_key.value == "MaStar"){
+			
+					var imf_choices = ["Kroupa", "Salpeter"];
+				}
 
-      <div id="processing_message" >
-        <span>Submission sent for processing! This may take several minutes... </span>
-        <span class = "loader"></span>   
-      </div>
+				var found_selected_choice = false;
+				imf_choices.forEach(function(choice) {
+					// create new option element
+					var opt = document.createElement('option');
+					opt.appendChild( document.createTextNode(choice) );
+					opt.value = choice; 
+					imf_list.appendChild(opt);
 
-    </fieldset>
-  </section>
-</body>
+				}); 
 
+				for(var i = 0; i < imf_choices.length; ++i) {
+					if (imf_list.options[i].value == imf_list_value) {
+						found_selected_choice = true;
+						break;
+					}
+				}
 
-<script type="text/javascript">
-  document.getElementById("processing_message").style.display = "none";
-</script>
+				if (found_selected_choice == false) {
+					imf_list_value = imf_list.options[0].value;
+				}
+				imf_list.value = imf_list_value;
+			}
 
-<script>
-function loading_message() {
-  var pm = document.getElementById("processing_message");
-  var error_message_SED = document.getElementById("error_message_SED");
+			history.navigationMode = 'compatible';
+			$(document).ready( function(){
+    			model_lib_choices();
+				imf_choices();
+			});
 
-  if (pm.style.display === "block") {
-    pm.style.display = "none";
-  } 
-  else {
-    pm.style.display = "block";
-  }
+			$("#id_model_key").change(function() {
+				model_lib_choices();
+				imf_choices();
+			});
 
-  if (error_message_SED.stlye.display == "none") {
-    error_message_SED.style.display = "block"
-  }
-  else {
-    error_message_SED.style.display = "none";
-  }
-}
-</script>
+			$("#id_model_libs").change(function() {
+				model_lib_choices();
+			});
 
+			$("#id_imfs").change(function() {
+				imf_choices();
+			});
 
+		</script>
+	</body>
 
-
-
-
+{% endblock %}
 

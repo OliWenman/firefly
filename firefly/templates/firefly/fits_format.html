@@ -7,37 +7,77 @@
 
 	<body>
 		<h2>
-			File formats
+			Accepted file formats
 		</h2>
-		<p>
-			The data needs to be in the format of either an ascii or fits file. Firefly can process a single ascii file or multiple fits files per job submission. You cannot mix file types.</p>
-		<p>
-			<b>Ascii</b> files must consist of two columns, wavelength and flux. The user will then have to manually input values for redshift, velocity dispersion, right ascension and declination. Error is assumed to be 10% of the flux. Can only process one spectrum per job submittion.
-		</p>
 
-		<p>
-			<b>Fits</b> files are the prefered file type. Firefly currently accepts two formats, standard SDSS which contains a single spectra , or as a fits table containing multiple spectra. Below you can find how each are formatted and download an example. You can upload multiple fits file of either the two formats.
-		</p>
+		{% for example in example_data %}
 
-		<h3>SDSS</h3>
-		<p><a href="{% url 'firefly:download' location='example' job_id=0  %}"> Click here </a> to download an example SDSS specta.</p>
+			<h3>{{example.title}}</h3>
 
-		<p>
-			<b>HDUL0</b>
-			<br>
-			{% for i in header0 %}
-				{{i}}
-				<br>
-			{% endfor %}
-		</p>
-		<p>
-			<b>HDUL1</b>
-			<br>
-			{% for i in header1 %}
-				{{i}}
-				<br>
-			{% endfor %}
-		</p>
+			<p>
+	    		{{ example.description|safe}}
+			</p>
+
+			<p>
+				<a href="{% url 'firefly:download' location='example' job_id=example.example_id  %}"> Download</a> example file.
+			</p>
+
+			{% ifequal example.file_type ".fits" %}
+
+				<button id = "button{{example.example_id}}" onclick="hide_show_headers('{{example.example_id}}')">
+					Show headers
+				</button>
+
+				<div id = "{{example.example_id}}">
+
+					<h4>Header0</h4>
+
+					{% for i in example.header_list0 %}
+						{{i}}
+						<br>
+					{% endfor %}
+
+					<h4>Header1</h4>
+
+					{% for i in example.header_list1 %}
+						{{i}}
+						<br>
+					{% endfor %}
+
+			</div>
+
+			{% endifequal %}
+
+		{% endfor %}
+
+		<script type="text/javascript">
+			for(var i = 0; i < {{example_data|length}}; ++i) {
+
+				try {
+					document.getElementById(i).style.display = "none"; 
+				}
+				catch {
+
+				}
+			}
+
+			function hide_show_headers(id) {
+
+				var name = "button" + id
+
+				if (document.getElementById(id).style.display == "none") {
+					document.getElementById(id).style.display = "";
+					document.getElementById(name).innerHTML = "Hide headers";
+				}
+				else if (document.getElementById(id).style.display == "") {
+					document.getElementById(id).style.display = "none";
+					document.getElementById(name).innerHTML = "Show headers";
+				}
+			}
+		</script>
+
 	</body>
+
+
 
 {% endblock %}

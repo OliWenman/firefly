@@ -15,12 +15,11 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-with open('./../SECRET_KEY_FIREFLY.txt') as f:
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'SECRET_KEY.txt')) as f:
     SECRET_KEY = f.read().strip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -128,6 +127,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL  = '/media/'
 
+"""
 TEMP_FILES    = os.path.join(MEDIA_ROOT, 'temp_files')
 INPUT_FILES   = os.path.join(MEDIA_ROOT, 'input_files')
 OUTPUT_FILES  = os.path.join(MEDIA_ROOT, 'output_files')
@@ -143,5 +143,14 @@ if os.path.isdir(INPUT_FILES) is False:
 if os.path.isdir(OUTPUT_FILES) is False:
     os.mkdir(OUTPUT_FILES)
 
+if os.path.isdir(EXAMPLE_FILES) is False:
+    os.mkdir(EXAMPLE_FILES)
+"""
+
+JOB_SUBIMISSIONS_ROOT = os.path.join(MEDIA_ROOT, 'job_submissions')
+if os.path.isdir(JOB_SUBIMISSIONS_ROOT) is False:
+    os.mkdir(JOB_SUBIMISSIONS_ROOT)
+
+EXAMPLE_FILES = os.path.join(MEDIA_ROOT, 'example_files')
 if os.path.isdir(EXAMPLE_FILES) is False:
     os.mkdir(EXAMPLE_FILES)

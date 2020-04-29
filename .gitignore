@@ -1,6 +1,8 @@
+*.fits
+
 /core_firefly/output*
 /core_firefly/stellar_population_models*
-/media*
+!media/example_files/spectra_example.fits
+!media/example_files/table_example.fits
 
 !core_firefly/output/plot_data.py
-*.fits

@@ -20,6 +20,7 @@ import time
 import os
 import warnings
 from io import BytesIO
+import shutil
 
 from astropy.io import fits
 import sys, traceback
@@ -30,6 +31,23 @@ clean_db = True
 import sys, os
 
 hideprint = True
+
+#Automatically delete job from databse after certain amount of time.
+@background(name = 'clean_db2', schedule = time_in_database, queue = 'my-queue')
+def clean_up(job_id):
+
+	try:
+
+		job_submission = Job_Submission.objects.get(job_id = job_id)
+
+		folder = os.path.join(settings.MEDIA_ROOT, "job_submissions", str(job_id))
+
+		job_submission.delete()
+
+		os.rmdir(folder)
+		print("deleted", job_id)
+	except:
+		pass
 
 # Disable
 def blockPrint():
@@ -116,41 +134,39 @@ def convert_to_fits_table(spectra_list,
 	for file in file_list:
 		
 		redshift_found = False
-		hdul = fits.open(file)
-		keys = list(hdul[1].header.keys())
+		with fits.open(file) as hdul:
+			keys = list(hdul[1].header.keys())
 
-		#print(keys)
+			#print(keys)
 
-		for key in keys:
-			if key != 'redshift' and key != 'IMF':
-				#print(key)
-				pass
-			else:
-				redshift_found = True
-				#print("FOUND")
-
-			if redshift_found:
-				if key in my_dict:
-					my_dict[key][i] = hdul[1].header[key]
+			for key in keys:
+				if key != 'redshift' and key != 'IMF':
+					#print(key)
+					pass
 				else:
-					thetype = type(hdul[1].header[key])
-					if thetype == str:
-						my_dict[key] = np.full((len(file_list)), 'N/A', dtype = 'S140')
-					else:
-						my_dict[key] = np.full((len(file_list)), np.NaN)
-					my_dict[key][i] = hdul[1].header[key]
+					redshift_found = True
+					#print("FOUND")
 
-		i = i + 1
-		"""
-		for key in extra_info_dict:
-			extra_info_dict[key] = np.append(extra_info_dict[key], float(hdul[1].header[key]))
-		
-		for key in extra_info_dict2:
-			for i in range(hdul[1].header['ssp_number']):
-				extra_info_dict2[key] = np.append(extra_info_dict2[key], float(hdul[1].header[key + str(i)]))
-		"""
-		hdul.close()
-		del hdul
+				if redshift_found:
+					if key in my_dict:
+						my_dict[key][i] = hdul[1].header[key]
+					else:
+						thetype = type(hdul[1].header[key])
+						if thetype == str:
+							my_dict[key] = np.full((len(file_list)), 'N/A', dtype = 'S140')
+						else:
+							my_dict[key] = np.full((len(file_list)), np.NaN)
+						my_dict[key][i] = hdul[1].header[key]
+
+			i = i + 1
+			"""
+			for key in extra_info_dict:
+				extra_info_dict[key] = np.append(extra_info_dict[key], float(hdul[1].header[key]))
+			
+			for key in extra_info_dict2:
+				for i in range(hdul[1].header['ssp_number']):
+					extra_info_dict2[key] = np.append(extra_info_dict2[key], float(hdul[1].header[key + str(i)]))
+			"""
 
 	for key in my_dict:
 		myformat = 'D'
@@ -159,6 +175,9 @@ def convert_to_fits_table(spectra_list,
 				float(my_dict[key][i])
 		except:
 			myformat = '20A'
+		
+		finally:
+			pass
 
 		try:
 			#print(key, my_dict[key])
@@ -167,28 +186,18 @@ def convert_to_fits_table(spectra_list,
 			#print("FAILED:", key)
 			pass
 
+		finally:
+			pass
+
 	#Add the columns and save the table
 	coldefs = fits.ColDefs(columns)
 
 	hdul    = fits.BinTableHDU.from_columns(coldefs)
 
-	hdul.writeto(output_file, overwrite=True)
+	hdul.writeto(output_file)
 
 	for file in file_list:
 		os.remove(file)
-
-
-#Automatically delete job from databse after certain amount of time.
-@background(name = 'clean_db', schedule=time_in_database, queue = 'my-queue')
-def clean_database(job_id):
-
-	try:
-		job_submission = Job_Submission.objects.get(job_id = job_id)
-		job_id = job_submission.job_id
-		job_submission.delete()
-		print("deleted", job_id)
-	except:
-		print("Failed to delete", job_id)
 
 @background(name = 'firefly', queue = 'my-queue')
 def firefly_run(input_file, 
@@ -215,6 +224,8 @@ def firefly_run(input_file,
 
 	t0 = time.time()
 	warnings.filterwarnings("ignore")
+	enablePrint()
+	print ("starting", job_id)
 	blockPrint()
 
 	try:
@@ -268,10 +279,8 @@ def firefly_run(input_file,
 									vdisp        = vdisp,
 									r_instrument = r_instrument)
 
-			output_file_i = os.path.join(settings.TEMP_FILES, "temp" + str(i) + "_" + output_name)
-
-			enablePrint()
-			blockPrint()
+			os.path.join(settings.MEDIA_ROOT, "job_submissions", str(job_id))
+			output_file_i = os.path.join(settings.MEDIA_ROOT, "job_submissions", str(job_id), "temp" + str(i) + "_" + output_name)
 
 			#Run firefly to process the data
 			output = firefly.run(input_file        = input_file, 
@@ -280,15 +289,12 @@ def firefly_run(input_file,
 								 N_angstrom_masked = N_angstrom_masked,
 								 n_spectrum        = i)
 
-			enablePrint()
-			print(output_file_i, "finished")
-			blockPrint()
 			output_list.append(output)
 			progress = int(((i + 1)/n_spectra)*100)
 			job_submission.status = str(progress)
 			job_submission.save()
 
-		output_file = os.path.join(settings.OUTPUT_FILES, output_name)
+		output_file = os.path.join(settings.MEDIA_ROOT, "job_submissions", str(job_id), output_name)
 		convert_to_fits_table(spectra_list = spectra_list,
 							  file_list    = output_list,
 							  output_file  = output_file)
@@ -300,12 +306,14 @@ def firefly_run(input_file,
 
 		#After completion, remove files from database after certain amount of time
 		#so we don't have to store files.
-		if clean_db:
-			clean_database(job_id)
-
+		enablePrint()
 		print (job_submission.job_id, ": total time =", int(time.time()-t0)/60 ,"minutess.")
+
+		if clean_db:
+			clean_up(job_id)
 			
 	except:
+		enablePrint()
 
 		traceback.print_exc()
 
@@ -320,5 +328,5 @@ def firefly_run(input_file,
 			except:
 				pass
 
-		clean_database(job_id)
-		print (job_submission.job_id, ": total time =", int(time.time()-t0)/60 ,"minutess.")
+		clean_up(job_id)
+		print ("finished", job_submission.job_id, ": total time =", int(time.time()-t0)/60 ,"minutess.")

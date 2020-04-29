@@ -9,7 +9,6 @@ import numpy as np
 import os
 from astropy.io import fits
 import string
-from .fits_table import Fits_Table
 
 from core_firefly.emission_lines import emissionline_choices
 

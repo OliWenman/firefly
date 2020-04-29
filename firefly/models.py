@@ -5,6 +5,7 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from core_firefly import firefly_class
+from astropy.io import fits
 
 #Import seperate background_tasks, allows for processing to be done in background
 #and not risk a timeout requesting a page while processing.
@@ -67,29 +68,74 @@ class Job_Submission(models.Model):
 	def __str__(self):
 		return str(self.job_id)
 
+	#def delete(self, using=None, keep_parents=False):
+	#	self.input_file.storage.delete(self.input_file.name)
+	#	self.output_file.storage.delete(self.output_file.name)
+	#	super().delete()
+
 	class Meta:
 		verbose_name = 'Job Submission'
 
 class Example_Data(models.Model):
 
-	input_file  = models.FileField(upload_to="example_files", blank = False, )
-	description = models.CharField(max_length = 100) 
-	example_id     = models.IntegerField(default = 0)
+	input_file  = models.FileField(upload_to="example_files", blank = False, unique = False)
+	title       = models.CharField(max_length = 50, null = True)
+	description = models.TextField(max_length = 1000) 
+	example_id  = models.IntegerField(unique = True)
 
 	def __str__(self):
 		return self.input_file.name
 
+	def header_list0(self):
+
+		n = 0
+
+		header = []
+
+		if os.path.splitext(self.input_file.name)[1] == ".fits": 
+
+			with fits.open(os.path.join(settings.EXAMPLE_FILES,self.input_file.path)) as hdul:
+
+				for i in hdul[n].header:
+					header.append(str(i) + " = " + str(hdul[n].header[i]) + " / " + str(hdul[n].header.comments[i]))
+
+			header.append("END")
+		
+		return header
+
+	def header_list1(self):
+
+		n = 1
+
+		header = []
+
+		if os.path.splitext(self.input_file.name)[1] == ".fits": 
+
+			with fits.open(os.path.join(settings.EXAMPLE_FILES,self.input_file.path)) as hdul:
+
+				for i in hdul[n].header:
+					header.append(str(i) + " = " + str(hdul[n].header[i]) + " / " + str(hdul[n].header.comments[i]))
+
+			header.append("END")
+		
+		return header
+
+	def file_type(self):
+		return os.path.splitext(self.input_file.name)[1]
+
+
 	class Meta:
 		verbose_name = 'Example data'
 		verbose_name_plural = verbose_name
-	
-#Automatically delete the files Job_Submitted had when itself is 
-#deleted from database. 
-@receiver(post_delete, sender=Example_Data)
-@receiver(post_delete, sender=Job_Submission)
-def submission_delete(sender, instance, **kwargs):
-	try:
-		instance.input_file.delete(False)
-		instance.output_file.delete(False) 
-	except:
-		pass
+
+
+@receiver(models.signals.post_delete, sender = Job_Submission)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+
+	instance.input_file.delete(False)
+	instance.output_file.delete(False) 
+
+@receiver(models.signals.post_delete, sender = Example_Data)
+def auto_delete_input_file_on_delete(sender, instance, **kwargs):
+
+	instance.input_file.delete(False)

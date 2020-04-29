@@ -38,7 +38,6 @@ import matplotlib as mpl
 import matplotlib.gridspec as gridspec
 from astropy.io import fits
 import sys, traceback
-from .fits_table import Fits_Table
 import astropy.cosmology as co
 from multiprocessing import Process
 
@@ -82,7 +81,7 @@ def home(request):
 			except Exception as e:
 				file_error = str(e)
 				return render(request, 
-							  'firefly/home2.html', 
+							  'firefly/home.html', 
 							  {'form':settings_form, 
 							   'SED':sedfile_form,
 							   'emissionlines_form' : emissionlines_form,
@@ -92,6 +91,9 @@ def home(request):
 			#Use the date and time to make unique job_id via scrambling the digits.
 			time_stamp = time.strftime("%Y%m%d%H%M%S")
 			job_id = int(''.join(random.sample(time_stamp,len(time_stamp))))
+
+			input_file_path = os.path.join(settings.MEDIA_ROOT, "job_submissions", str(job_id))
+			os.mkdir(input_file_path)
 
 			file_error = None
 
@@ -103,8 +105,8 @@ def home(request):
 				for file in userfile_list:
 
 					#Make sure the files are unique by assigning them a unique number
-					temp_fitsname = file.name[0:-5] + "_" +str(job_id) + ".fits"
-					temp_fitspath = os.path.join(settings.TEMP_FILES, temp_fitsname)
+					temp_fitsname = file.name[0:-5] + ".fits"
+					temp_fitspath = os.path.join(settings.MEDIA_ROOT, "job_submissions", str(job_id), temp_fitsname)
 
 					#Save the files to disk as library cannot read .fits files from memory 
 					with open(temp_fitspath, 'wb+') as file_destination:
@@ -114,7 +116,9 @@ def home(request):
 					file_list.append(temp_fitspath)
 
 				#Create a filename for that contains the combined data of all the files for Firefly
-				input_file = os.path.join(settings.INPUT_FILES, "input_" + str(job_id) + ".fits")
+				#input_file = os.path.join(settings.INPUT_FILES, "input_" + str(job_id) + ".fits")
+
+				input_file = os.path.join(input_file_path, "input_" + str(job_id) + ".fits")
 
 				try:
 					#Combine the data and write to the input_file
@@ -139,7 +143,7 @@ def home(request):
 
 					#Add a unique id to the filename
 					sed_file_name = userfile_list[0].name[0:-6] + "_" +str(job_id) + ".ascii"
-					input_file = os.path.join(settings.INPUT_FILES, sed_file_name)
+					input_file = os.path.join(input_file_path, sed_file_name)
 
 					#Save the file to disk
 					with open(input_file, 'wb+') as file_destination:
@@ -156,8 +160,11 @@ def home(request):
 
 			#If an error occured, display it back to the user. 
 			if file_error:
+
+				os.rmdir(input_file_path)
+
 				return render(request, 
-							  'firefly/home2.html', 
+							  'firefly/home.html', 
 							  {'form':settings_form, 
 							   'SED':sedfile_form,
 							   'emissionlines_form' : emissionlines_form,
@@ -289,7 +296,7 @@ def home(request):
 			if request.POST.get('output_name') == '':
 				output_name = "output_" + str(job_id) + ".fits"
 			else:
-				output_name = output_name + "_" + str(job_id) + ".fits"
+				output_name = output_name + ".fits"
 			
 			#Run the background task of firefly
 			firefly_run(input_file        = input_file, 
@@ -324,7 +331,7 @@ def home(request):
 		#Otherwise redirect back to form page with the forms that were used, display errors to user
 		else:
 			return render(request, 
-						 'firefly/home2.html', 
+						 'firefly/home.html', 
 						 {'form':settings_form, 
 						 'SED':sedfile_form,
 						 'emissionlines_form' : emissionlines_form,
@@ -338,11 +345,13 @@ def home(request):
 
 	#Dispaly a new form to user if first time on site.
 	return render(request, 
-				 'firefly/home2.html', 
+				 'firefly/home.html', 
 				 {'form': settings_form, 
 				 'SED'  : sedfile_form,
 				 'emissionlines_form' : emissionlines_form,
 				 'ascii_additional_inputs': additional_inputs})
+
+import math
 
 def processed(request, job_id):
 
@@ -358,13 +367,9 @@ def processed(request, job_id):
 		if job_submission.status == "failed":
 			return render(request, 'firefly/error.html', {'job_id': job_id})
 
-		plot_size = (7, 5)
+		plot_size = (6.5, 5)
 		
 		if job_submission.output_file.name and job_submission.status == "complete":
-
-			hdul = fits.open(job_submission.output_file.path)
-
-			n_spectra = len(hdul[1].data['wavelength'])
 
 			graphic_array      = []	
 			metallicity_array  = []
@@ -372,117 +377,123 @@ def processed(request, job_id):
 			age_array          = []
 			light_array        = []
 			converged_array    = []
-			#imf_array          = []
-			#model_array        = []
-			for i in range(n_spectra):
-				
-				fig    = plt.figure(figsize = plot_size)
-				buffer = BytesIO()
 
-				wavelength  = hdul[1].data['wavelength'][i]
-				flux        = hdul[1].data['original_data'][i]
-				model       = hdul[1].data['firefly_model'][i]
-				spectra     = hdul[1].data['spectra'][i]
-				converged   = hdul[1].data['converged'][i]
-				#imf         = hdul[1].data['IMF'][i]
-				#model_used  = hdul[1].data['Model'][i]
+			with fits.open(job_submission.output_file.path) as hdul:
 
-				#imf_array.append(imf)
-				#model_array.append(model_used)
+				n_spectra = len(hdul[1].data['wavelength'])
 
-				if converged == 'False':
-					converged = False
-				elif converged == 'True':
-					converged = True
-
-				converged_array.append(converged)
-
-				if converged:
-
-					csp_age=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-					csp_Z=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-					csp_light=np.ndarray(int(hdul[1].data['ssp_number'][i]))
-					csp_mass=np.ndarray(int(hdul[1].data['ssp_number'][i]))
+				#imf_array          = []
+				#model_array        = []
+				for i in range(n_spectra):
 					
-					age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))
-					metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))
-					mass        = str(np.around(hdul[1].data['stellar_mass'][i],decimals=2))
-					light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))
+					fig    = plt.figure(figsize = plot_size)
+					buffer = BytesIO()
 
-					for n in range(len(csp_age)):
-						csp_age[n]=hdul[1].data['log_age_ssp_'+str(n)][i]
-						csp_Z[n]=hdul[1].data['metal_ssp_'+str(n)][i]
-						csp_light[n]=hdul[1].data['weightLight_ssp_'+str(n)][i]
-						csp_mass[n]=hdul[1].data['weightMass_ssp_'+str(n)][i]
-				else:
-					age         = None
-					metallicity = None
-					mass        = None
-					light       = None
+					wavelength  = np.array(hdul[1].data['wavelength'][i])
+					flux        = np.array(hdul[1].data['original_data'][i])
+					model       = np.array(hdul[1].data['firefly_model'][i])
+					spectra     = np.array(hdul[1].data['spectra'][i])
+					converged   = str(hdul[1].data['converged'][i])
+					#imf         = hdul[1].data['IMF'][i]
+					#model_used  = hdul[1].data['Model'][i]
 
-				age_array.append(age)
-				metallicity_array.append(metallicity)
-				try:
-					stellar_mass_array.append(np.around(10**(float(mass))), decimals = 2)
-				except:
+					#imf_array.append(imf)
+					#model_array.append(model_used)
+
+					if converged == 'False':
+						converged = False
+					elif converged == 'True':
+						converged = True
+
+					converged_array.append(converged)
+
+					if converged:
+
+						csp_age   = np.ndarray(int(hdul[1].data['ssp_number'][i]))
+						csp_Z     = np.ndarray(int(hdul[1].data['ssp_number'][i]))
+						csp_light = np.ndarray(int(hdul[1].data['ssp_number'][i]))
+						csp_mass  = np.ndarray(int(hdul[1].data['ssp_number'][i]))
+						
+						age         = str(np.around(10**hdul[1].data['age_lightW'][i],decimals=2))
+						metallicity = str(np.around(hdul[1].data['metallicity_lightW'][i],decimals=2))
+						mass        = str(10**hdul[1].data['stellar_mass'][i])
+						mass        = '{0:.2e}'.format(float(mass))
+
+						light       = str(np.around(hdul[1].data['EBV'][i],decimals=2))
+
+						for n in range(len(csp_age)):
+							csp_age[n]   = float(hdul[1].data['log_age_ssp_' + str(n)][i])
+							csp_Z[n]     = float(hdul[1].data['metal_ssp_' + str(n)][i])
+							csp_light[n] = float(hdul[1].data['weightLight_ssp_' + str(n)][i])
+							csp_mass[n]  = float(hdul[1].data['weightMass_ssp_' + str(n)][i])
+					else:
+						age         = None
+						metallicity = None
+						mass        = None
+						light       = None
+
+					age_array.append(age)
+					metallicity_array.append(metallicity)
+
+					#if mass != None:
+					#	stellar_mass_array.append(np.around(10**(float(mass)), decimals = 2))
+					#else:
 					stellar_mass_array.append(mass)
-				light_array.append(light)
 
-				gridspec.GridSpec(2,2)
-				gridsize = (2,2)
+					light_array.append(light)
 
-				#Mainplot
-				plt.subplot2grid(gridsize, (0,0), colspan = 2, rowspan = 1)
-				plt.xlabel('Wavelength (Å)')
-				plt.ylabel('Flux')
-				plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
-				plt.plot(wavelength, flux, label = 'Original data')
-				if converged:
-					plt.plot(wavelength, model, label = 'Fitted data')
-				plt.title(spectra)
-				plt.xlim(left = wavelength[0], right = wavelength[-1])
-				plt.ylim(bottom = 0)
-				plt.legend()
-				plt.grid()
+					gridspec.GridSpec(2,2)
+					gridsize = (2,2)
 
-				if converged == True:
-					#Small subplot 1
-					plt.subplot2grid(gridsize, (1,0))
-					plt.bar(10**(csp_age),
-							csp_light,
-							width=0.3,
-							align='center',
-							alpha=0.5)
-					plt.xlabel('Age')
-					plt.ylabel('frequency/Gyr')
-					#plt.title() 
+					#Mainplot
+					plt.subplot2grid(gridsize, (0,0), colspan = 2, rowspan = 1)
+					plt.xlabel('Wavelength (Å)')
+					plt.ylabel('Flux')
+					plt.ticklabel_format(style='sci', axis='y', scilimits=(0,0))
+					plt.plot(wavelength, flux, label = 'Original data')
+					if converged:
+						plt.plot(wavelength, model, label = 'Fitted data')
+					plt.title(spectra)
+					plt.xlim(left = wavelength[0], right = wavelength[-1])
+					plt.ylim(bottom = 0)
+					plt.legend()
+					plt.grid()
 
-					#Small subplot 2
-					plt.subplot2grid(gridsize, (1,1))
-					plt.bar(csp_Z, 
-							csp_light, 
-							width=0.1, 
-							align='center', 
-							alpha=0.5)
-					plt.xlabel('Z')
-					plt.ylabel('frequency/Gyr')
-					#plt.title()
+					if converged == True:
+						#Small subplot 1
+						plt.subplot2grid(gridsize, (1,0))
+						plt.bar(10**(csp_age),
+								csp_light,
+								width=0.3,
+								align='center',
+								alpha=0.5)
+						plt.xlabel('Age')
+						plt.ylabel('frequency/Gyr')
+						#plt.title() 
 
-				fig.tight_layout()
+						#Small subplot 2
+						plt.subplot2grid(gridsize, (1,1))
+						plt.bar(csp_Z, 
+								csp_light, 
+								width=0.1, 
+								align='center', 
+								alpha=0.5)
+						plt.xlabel('Z')
+						plt.ylabel('frequency/Gyr')
+						#plt.title()
 
-				plt.savefig(buffer, format='png')
-				buffer.seek(0)
-				image_png = buffer.getvalue()
-				buffer.close()
-				plt.close()
+					fig.tight_layout()
 
-				graphic = base64.b64encode(image_png)
-				graphic = graphic.decode('utf-8')
+					plt.savefig(buffer, format='png')
+					buffer.seek(0)
+					image_png = buffer.getvalue()
+					buffer.close()
+					plt.close()
 
-				graphic_array.append(graphic)	
+					graphic = base64.b64encode(image_png)
+					graphic = graphic.decode('utf-8')
 
-			hdul.close()
-			input_array = []
+					graphic_array.append(graphic)	
 
 			return render(request, 
 						  'firefly/processed.html', 
@@ -519,22 +530,29 @@ def processed(request, job_id):
 				n_spectra  = 1
 			else:
 
-				with fits.open(job_submission.input_file.path) as hdul:
+				#with fits.open(job_submission.input_file.path) as hdul:
+				hdul = fits.open(job_submission.input_file.path)
 
-					try:
-						n_spectra = len(hdul[1].data['flux'])
-						flux_array       = hdul[1].data['flux']
-						wavelength_array = 10**hdul[1].data['loglam']
-						spectra_array    = hdul[1].data['spectra']
-						fits_table = True
+				try:
+					n_spectra        = len(hdul[1].data['flux'])
+					flux_array       = np.array(hdul[1].data['flux'])
+					wavelength_array = np.array(10**hdul[1].data['loglam'])
+					spectra_array    = np.array(hdul[1].data['spectra'])
+					fits_table       = True
 
-					except:
-						n_spectra        = 1
-						flux_array       = hdul[1].data['flux']
-						wavelength_array = 10**hdul[1].data['loglam']
-						spectra_array    = job_submission.input_file.name
+				except:
+					n_spectra        = 1
+					flux_array       = np.array(hdul[1].data['flux'])
+					wavelength_array = np.array(10**hdul[1].data['loglam'])
+					spectra_array    = job_submission.input_file.name
 
-						fits_table = False
+					fits_table = False
+				
+				finally:
+					hdul.close()
+
+				#os.remove(job_submission.input_file.path)
+				#job_submission.delete()
 
 
 			graphic_array = []
@@ -675,21 +693,13 @@ if found == False:
 
 def fits_format(request):
 
-	data = Example_Data.objects.get(example_id = 0)
+	examples = Example_Data.objects.all()
 
-	hdul = fits.open(os.path.join(settings.EXAMPLE_FILES, data.input_file.path))
+	example_list = []
 
-	header0 = []
-	header1 = [] 
-	for i in hdul[0].header:
-		header0.append(str(i) + " = " + str(hdul[0].header[i]) + " / " +str(hdul[0].header.comments[i]))
-	
-	for i in hdul[1].header:
-		header1.append(str(i) + " = " + str(hdul[1].header[i]) + " / " +str(hdul[1].header.comments[i]))
+	for i in range(len(examples)):
+		example_list.append(examples[i])
 
-	header0.append("END")
-	header1.append("END")
-	hdul.close()
-	
-	return render(request, 'firefly/fits_format.html', {'header0': header0,
-														'header1': header1,})
+	#[Example_Data.objects.all()[0], Example_Data.objects.all()[1], Example_Data.objects.all()[2]]
+
+	return render(request, 'firefly/fits_format.html', {'example_data': example_list})
